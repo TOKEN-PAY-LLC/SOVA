@@ -3,58 +3,104 @@
 ## v1.0.0 — March 2026
 
 ```
-    ,___,
-    {o,o}    SOVA Protocol v1.0.0
-    /)  )    Production Release
-    -"  "-
+         ▄▄▄████▄▄▄
+       ▄██▀▀    ▀▀██▄
+      ███  ◉    ◉  ███     SOVA Protocol v1.0.0
+      ███    ▾▾    ███     Production Release
+       ▀██▄▄▄▄▄▄██▀
+      ╱╱ ▀████████▀ ╲╲
+     ╱╱   ║██████║   ╲╲
+    ▕▕    ║██████║    ▏▏
+           ║║  ║║
+          ▄╩╩▄▄╩╩▄
 ```
+
+### Highlights
+
+- **Flying purple owl animation** — the owl flies across the terminal at startup with wing flapping, sparkle trail, and gradient purple 256-color ANSI
+- **18 REST API endpoints** — full management with CORS, API key auth, profiles, logs, stats
+- **15 toggleable modules** — PQ crypto, stealth, AI adapter, mesh, DNS, and more
+- **Config profiles** — save/load/switch via CLI and API
+- **Verified working** — SOCKS5 proxy (HTTP 200 through tunnel), all 18 API endpoints tested
+
+---
 
 ### New in v1.0.0
 
+#### Terminal UI
+- **Animated flying owl** — 3-frame flight animation (wings up / glide / wings down) across terminal width
+- **Sparkle trail** — fading `✦✧⋆˚·∗⊹✶✵⁺` stars behind the owl
+- **Landing animation** — owl appears line-by-line, blinks, looks left/right
+- **256-color purple gradient** — 8 purple shades from dark to lavender
+- **Beautiful banner box** — `╔═══╗` styled box with version and tagline
+- **Rich status output** — purple-themed sections, key-value pairs, progress bars
+
+#### Management API (18 endpoints)
+- `GET /api/status` — system status with traffic stats
+- `GET /api/health` — health check
+- `GET /api/config` — full config JSON
+- `PUT /api/config` — update full config
+- `POST /api/config/set` — set single key
+- `POST /api/config/reset` — reset to defaults
+- `GET /api/features` — all 15 modules on/off
+- `POST /api/feature/` — toggle module
+- `GET /api/system` — CPU, RAM, GC, goroutines
+- `GET /api/stats` — traffic statistics
+- `GET /api/logs` — log entries (with `?limit=N`)
+- `GET /api/profiles` — saved config profiles
+- `POST /api/profile` — switch profile
+- `POST /api/profile/save` — save current as profile
+- `POST /api/restart` — schedule restart
+- `GET /api/transport` — transport info (mode, SNI, CDN)
+- `GET /api/encryption` — encryption details (algorithm, PQ, ZKP)
+- `GET /api/stealth` — stealth engine info
+- **CORS middleware** — `Access-Control-Allow-Origin: *`
+- **API key auth** — `X-API-Key` header or `?api_key=` query param
+
+#### Configuration System
+- 14 configurable keys via CLI and API
+- 15 toggleable modules: `pq_crypto, zkp, stealth, padding, decoy, ai_adapter, compression, connection_pool, smart_routing, mesh_network, offline_first, dns, api, dashboard, auto_proxy`
+- Persistent JSON config at `~/.sova/config.json`
+- Config profiles: save, load, switch, list
+
 #### Traffic Acceleration
-- **Gzip compression** — automatic traffic compression with intelligent threshold
-- **Connection pooling** — reuse of idle connections to reduce handshake overhead
-- **Route optimizer** — selects fastest route based on latency/bandwidth/loss scoring
-- **Accelerated read/write** — framed protocol with length-prefixed compressed packets
+- **Gzip compression** — automatic traffic compression
+- **Connection pooling** — reuse of idle connections
+- **Route optimizer** — latency/bandwidth/loss scoring
+- **Accelerated read/write** — framed protocol with compressed packets
 
 #### Stealth Engine
-- **Traffic mimicry** — profiles for Chrome HTTPS, YouTube streaming, Cloud API calls
-- **Adaptive jitter** — Box-Muller normal distribution for realistic timing
-- **Intelligent padding** — pads packets to standard HTTP sizes (64, 128, 256, 512, 1024, 1460 bytes)
-- **Decoy traffic** — background keep-alive packets to prevent idle detection
-- **TLS fingerprint masking** — cipher suite and extension lists matching popular browsers
-
-#### Web Dashboard
-- Purple-themed dashboard at `http://localhost:8080`
-- Real-time server stats, active connections, logs
-- REST API endpoints for monitoring
+- **Traffic mimicry** — Chrome, YouTube, Cloud API profiles
+- **Adaptive jitter** — Box-Muller normal distribution
+- **Intelligent padding** — standard HTTP packet sizes
+- **Decoy traffic** — background keep-alive packets
+- **TLS fingerprint masking** — Chrome, Firefox, Safari fingerprints
 
 #### SOCKS5 Proxy
-- Built-in SOCKS5 proxy server for universal app compatibility
-- Connection stats tracking (bytes up/down)
+- Built-in SOCKS5 proxy on `127.0.0.1:1080`
+- Remote tunnel mode via `sova connect <server>`
+- Connection stats tracking (bytes up/down, active/total)
 
 #### DNS-over-SOVA
 - Encrypted DNS resolver with local caching
-- Fallback to system resolver on failure
-- Cache stats and management
+- Configurable upstream and port
+- Fallback to system resolver
 
-#### Installer Upgrade
-- **Animated owl** ASCII art during installation
-- Platform auto-detection (Linux/macOS/Windows, amd64/arm64/armv7/386)
-- Download with fallback to build-from-source
-- Automatic systemd (Linux) / Windows Service setup
+#### Web Dashboard
+- Purple-themed dashboard at `http://localhost:8080`
+- Real-time stats, connections, logs
+
+#### Encryption
+- **AES-256-GCM** + **ChaCha20-Poly1305**
+- **Kyber1024** KEM (post-quantum key exchange)
+- **Dilithium mode5** (post-quantum signatures)
+- **Zero-Knowledge Proof** auth on Ed25519
 
 #### Code Quality
-- Removed dead placeholder PQ functions from `auth.go` (real PQ crypto in `crypto.go`)
 - Fixed circl API usage (Kyber1024 via `Scheme()`, Dilithium via `mode5`)
-- Removed unused imports across codebase
-- 44+ unit tests covering all major components
-
-### Security Improvements
-- Real post-quantum crypto (Kyber1024 KEM + Dilithium mode5 signatures)
-- Rate limiting middleware on all API endpoints
-- Input validation on all REST handlers
-- Documented `InsecureSkipVerify` usage with PQ key verification
+- 58+ unit tests covering all major components
+- All 4 packages compile cleanly: `common`, `server`, `client`, `plugin`
+- `go vet` and `go build` pass with zero warnings
 
 ---
 
@@ -79,10 +125,14 @@ dist/
 ├── sova-server-linux-amd64
 ├── sova-server-linux-arm64
 ├── sova-server-windows-amd64.exe
+├── sova-server-windows-arm64.exe
+├── sova-server-macos-amd64
 ├── sova-server-macos-arm64
 ├── sova-linux-amd64
 ├── sova-linux-arm64
 ├── sova-windows-amd64.exe
+├── sova-windows-arm64.exe
+├── sova-macos-amd64
 ├── sova-macos-arm64
 ├── install.sh
 └── install.ps1
@@ -103,7 +153,7 @@ Runtime: **none** (static binaries).
 ### Testing
 
 ```bash
-go test -v ./common/           # 44+ tests
+go test -v ./common/           # 58+ tests
 go test -bench=. ./common/     # benchmarks
 ```
 
