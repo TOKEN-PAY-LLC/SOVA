@@ -139,17 +139,7 @@ func startTunnel(ui *common.UI) {
 	ui.AnimateConnection()
 
 	// Инструкции для пользователя
-	ui.PrintSection("SOVA Tunnel Active")
-	ui.PrintKeyValue("SOCKS5 Proxy:", fmt.Sprintf("%s%s%s", common.Yellow, listenAddr, common.Reset))
-	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (PQ-encrypted)")
-	fmt.Println()
-	fmt.Printf("%s  Configure your browser or system proxy:%s\n", common.Dim, common.Reset)
-	fmt.Printf("%s  → SOCKS5 Host: %s  Port: %d%s\n", common.Yellow, cfg.ListenAddr, cfg.ListenPort, common.Reset)
-	fmt.Printf("%s  → Or use: curl --proxy socks5h://%s https://youtube.com%s\n", common.Dim, listenAddr, common.Reset)
-	fmt.Println()
-	ui.PrintDivider()
-	fmt.Printf("%s  Press Ctrl+C to stop SOVA%s\n", common.Dim, common.Reset)
-	fmt.Println()
+	ui.PrintTunnelActive(listenAddr, cfg)
 
 	// Ожидание сигнала завершения
 	sigChan := make(chan os.Signal, 1)
@@ -283,6 +273,8 @@ func handleConfig(ui *common.UI) {
 			cfg.Encryption.Algorithm = value
 		case "stealth_profile":
 			cfg.Stealth.Profile = value
+		case "tls_fingerprint":
+			cfg.Stealth.TLSFingerprint = value
 		case "log_level":
 			cfg.LogLevel = value
 		case "transport_mode":
@@ -295,6 +287,18 @@ func handleConfig(ui *common.UI) {
 			cfg.API.Port = port
 		case "dns_upstream":
 			cfg.DNS.Upstream = value
+		case "dns_port":
+			port, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid port: %s", value))
+			}
+			cfg.DNS.Port = port
+		case "jitter_ms":
+			jitter, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid jitter: %s", value))
+			}
+			cfg.Stealth.JitterMs = jitter
 		default:
 			ui.ExitWithError(fmt.Errorf("unknown config key: %s", key))
 		}
