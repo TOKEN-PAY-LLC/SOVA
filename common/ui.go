@@ -197,6 +197,7 @@ type UI struct {
 
 // NewUI создает новый UI
 func NewUI(verbose bool) *UI {
+	EnableVTMode()
 	return &UI{Verbose: verbose}
 }
 

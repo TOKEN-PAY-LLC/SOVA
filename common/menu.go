@@ -108,7 +108,7 @@ func RunMenu(titleEN, titleRU string, items []MenuItem) int {
 		fmt.Print("\r\033[2K\r\n")
 		hint := T(
 			"  Arrows/j/k: navigate | Enter: select | Esc/q: back",
-			"  Strelki/j/k: navigacija | Enter: vybor | Esc/q: nazad",
+			"  Стрелки/j/k: навигация | Enter: выбор | Esc/q: назад",
 		)
 		fmt.Printf("\r\033[2K  %s%s%s\r\n", Dim, hint, Reset)
 
@@ -151,9 +151,9 @@ func SelectLanguage() Language {
 	for {
 		fmt.Printf("\033[%dA", totalLines)
 		fmt.Printf("\r\033[2K\r\n")
-		fmt.Printf("\r\033[2K  %s%sSelect language / Vyberite yazyk:%s\r\n", Purple6, Bold, Reset)
+		fmt.Printf("\r\033[2K  %s%sSelect language / Выберите язык:%s\r\n", Purple6, Bold, Reset)
 		fmt.Printf("\r\033[2K  %s%s%s\r\n", Purple3, strings.Repeat("-", 42), Reset)
-		langs := []string{"[EN]  English", "[RU]  Russkij"}
+		langs := []string{"[EN]  English", "[RU]  Русский"}
 		for i, l := range langs {
 			fmt.Print("\r\033[2K")
 			if i == selected {

@@ -81,16 +81,16 @@ func runInteractiveMenu(ui *common.UI) {
 
 	for {
 		items := []common.MenuItem{
-			{LabelEN: "Start Tunnel", LabelRU: "Zapustit' tunnel'", DescEN: "SOCKS5 proxy 127.0.0.1:1080", DescRU: "SOCKS5 proksi 127.0.0.1:1080"},
-			{LabelEN: "Connect to Server", LabelRU: "Podklyuchit'sya k serveru", DescEN: "Via remote SOVA server", DescRU: "Cherez udalyonnyj server"},
-			{LabelEN: "Configuration", LabelRU: "Konfiguratsiya", DescEN: "View & edit settings", DescRU: "Nastrojki"},
-			{LabelEN: "Modules", LabelRU: "Moduli", DescEN: "Toggle features on/off", DescRU: "Vkl/vykl moduli"},
-			{LabelEN: "Status", LabelRU: "Status", DescEN: "System info", DescRU: "Informatsiya o sisteme"},
-			{LabelEN: "Help", LabelRU: "Spravka", DescEN: "Commands & API", DescRU: "Komandy i API"},
-			{LabelEN: "Exit", LabelRU: "Vykhod", DescEN: "", DescRU: ""},
+			{LabelEN: "Start Tunnel", LabelRU: "Запустить туннель", DescEN: "SOCKS5 proxy 127.0.0.1:1080", DescRU: "SOCKS5 прокси 127.0.0.1:1080"},
+			{LabelEN: "Connect to Server", LabelRU: "Подключиться к серверу", DescEN: "Via remote SOVA server", DescRU: "Через удалённый сервер"},
+			{LabelEN: "Configuration", LabelRU: "Конфигурация", DescEN: "View & edit settings", DescRU: "Настройки"},
+			{LabelEN: "Modules", LabelRU: "Модули", DescEN: "Toggle features on/off", DescRU: "Вкл/выкл модули"},
+			{LabelEN: "Status", LabelRU: "Статус", DescEN: "System info", DescRU: "Информация о системе"},
+			{LabelEN: "Help", LabelRU: "Справка", DescEN: "Commands & API", DescRU: "Команды и API"},
+			{LabelEN: "Exit", LabelRU: "Выход", DescEN: "", DescRU: ""},
 		}
 
-		choice := common.RunMenu("SOVA Protocol v"+common.Version, "Protokol SOVA v"+common.Version, items)
+		choice := common.RunMenu("SOVA Protocol v"+common.Version, "Протокол SOVA v"+common.Version, items)
 		switch choice {
 		case 0:
 			startTunnel(ui)
@@ -109,14 +109,14 @@ func runInteractiveMenu(ui *common.UI) {
 			waitEnter()
 		case -1, 6:
 			fmt.Println()
-			ui.PrintSuccess(common.T("Goodbye! Stay free!", "Do svidaniya!"))
+			ui.PrintSuccess(common.T("Goodbye! Stay free!", "До свидания! Оставайтесь свободными!"))
 			return
 		}
 	}
 }
 
 func menuConnect(ui *common.UI) {
-	fmt.Printf("\n  %s%s%s ", common.Purple7, common.T("Server address (host:port): ", "Adres servera (host:port): "), common.Reset)
+	fmt.Printf("\n  %s%s%s ", common.Purple7, common.T("Server address (host:port): ", "Адрес сервера (host:port): "), common.Reset)
 	reader := bufio.NewReader(os.Stdin)
 	addr, _ := reader.ReadString('\n')
 	addr = strings.TrimSpace(addr)
@@ -129,15 +129,15 @@ func menuConnect(ui *common.UI) {
 func menuConfig(ui *common.UI) {
 	for {
 		items := []common.MenuItem{
-			{LabelEN: "Show Configuration", LabelRU: "Pokazat' konfiguraciyu", DescEN: "Current settings", DescRU: "Tekushchie nastrojki"},
-			{LabelEN: "Edit Setting", LabelRU: "Izmenit' parametr", DescEN: "key = value", DescRU: "klyuch = znachenie"},
-			{LabelEN: "Reset to Defaults", LabelRU: "Sbrosit' nastrojki", DescEN: "Restore defaults", DescRU: "Vosstanovit' po umolchaniyu"},
-			{LabelEN: "Export JSON", LabelRU: "Eksport JSON", DescEN: "Config as JSON", DescRU: "Konfig v JSON"},
-			{LabelEN: "Config Path", LabelRU: "Put' k konfigu", DescEN: "File location", DescRU: "Raspolozhenie fajla"},
-			{LabelEN: "Back", LabelRU: "Nazad", DescEN: "", DescRU: ""},
+			{LabelEN: "Show Configuration", LabelRU: "Показать конфигурацию", DescEN: "Current settings", DescRU: "Текущие настройки"},
+			{LabelEN: "Edit Setting", LabelRU: "Изменить параметр", DescEN: "key = value", DescRU: "ключ = значение"},
+			{LabelEN: "Reset to Defaults", LabelRU: "Сбросить настройки", DescEN: "Restore defaults", DescRU: "Восстановить по умолчанию"},
+			{LabelEN: "Export JSON", LabelRU: "Экспорт JSON", DescEN: "Config as JSON", DescRU: "Конфиг в JSON"},
+			{LabelEN: "Config Path", LabelRU: "Путь к конфигу", DescEN: "File location", DescRU: "Расположение файла"},
+			{LabelEN: "Back", LabelRU: "Назад", DescEN: "", DescRU: ""},
 		}
 
-		choice := common.RunMenu("Configuration", "Konfiguratsiya", items)
+		choice := common.RunMenu("Configuration", "Конфигурация", items)
 		cfg, _ := common.LoadConfig(common.GetConfigPath())
 
 		switch choice {
@@ -151,7 +151,7 @@ func menuConfig(ui *common.UI) {
 			if err := def.Save(common.GetConfigPath()); err != nil {
 				ui.PrintError(err)
 			} else {
-				ui.PrintSuccess(common.T("Config reset to defaults", "Konfiguratsiya sbroshena"))
+				ui.PrintSuccess(common.T("Config reset to defaults", "Конфигурация сброшена"))
 			}
 			waitEnter()
 		case 3:
@@ -170,14 +170,14 @@ func menuConfig(ui *common.UI) {
 func menuEditSetting(ui *common.UI) {
 	reader := bufio.NewReader(os.Stdin)
 
-	fmt.Printf("\n  %s%s%s", common.Purple7, common.T("Key: ", "Klyuch: "), common.Reset)
+	fmt.Printf("\n  %s%s%s", common.Purple7, common.T("Key: ", "Ключ: "), common.Reset)
 	key, _ := reader.ReadString('\n')
 	key = strings.TrimSpace(key)
 	if key == "" {
 		return
 	}
 
-	fmt.Printf("  %s%s%s", common.Purple7, common.T("Value: ", "Znachenie: "), common.Reset)
+	fmt.Printf("  %s%s%s", common.Purple7, common.T("Value: ", "Значение: "), common.Reset)
 	value, _ := reader.ReadString('\n')
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -187,7 +187,7 @@ func menuEditSetting(ui *common.UI) {
 	cfg, _ := common.LoadConfig(common.GetConfigPath())
 	applied := applyConfigSetting(cfg, key, value)
 	if !applied {
-		ui.PrintError(fmt.Errorf(common.T("Unknown key: %s", "Neizvestnyj klyuch: %s"), key))
+		ui.PrintError(fmt.Errorf(common.T("Unknown key: %s", "Неизвестный ключ: %s"), key))
 		return
 	}
 	if err := cfg.Save(common.GetConfigPath()); err != nil {
@@ -289,12 +289,12 @@ func menuModules(ui *common.UI) {
 				LabelEN: status + " " + f.name,
 				LabelRU: status + " " + f.name,
 				DescEN:  "Enter to toggle",
-				DescRU:  "Enter dlya pereklyucheniya",
+				DescRU:  "Enter для переключения",
 			})
 		}
-		items = append(items, common.MenuItem{LabelEN: "Back", LabelRU: "Nazad"})
+		items = append(items, common.MenuItem{LabelEN: "Back", LabelRU: "Назад"})
 
-		choice := common.RunMenu("Modules", "Moduli", items)
+		choice := common.RunMenu("Modules", "Модули", items)
 		if choice == -1 || choice >= len(features) {
 			return
 		}
@@ -307,7 +307,7 @@ func menuModules(ui *common.UI) {
 }
 
 func waitEnter() {
-	fmt.Printf("\n  %s%s%s", common.Dim, common.T("Press Enter to continue...", "Nazhmite Enter..."), common.Reset)
+	fmt.Printf("\n  %s%s%s", common.Dim, common.T("Press Enter to continue...", "Нажмите Enter..."), common.Reset)
 	bufio.NewReader(os.Stdin).ReadString('\n')
 }
 

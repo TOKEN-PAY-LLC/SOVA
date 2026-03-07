@@ -2,6 +2,7 @@
 
 package common
 
-func enableVTInput() {
-	// Unix terminals support VT escape sequences natively
-}
+// EnableVTMode is a no-op on Unix — terminals support VT natively
+func EnableVTMode() {}
+
+func enableVTInput() {}
