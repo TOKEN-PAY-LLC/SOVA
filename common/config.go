@@ -41,6 +41,9 @@ type Config struct {
 	// Транспорт
 	Transport TransportConfig2 `json:"transport"`
 
+	// Upstream прокси для цепочки (socks5://host:port или http://host:port)
+	UpstreamProxy string `json:"upstream_proxy"`
+
 	mu sync.RWMutex `json:"-"`
 }
 
@@ -54,8 +57,8 @@ type EncryptionConfig struct {
 // StealthConfig настройки стелс-режима
 type StealthConfig struct {
 	Enabled        bool   `json:"enabled"`
-	Profile        string `json:"profile"`         // "chrome", "youtube", "cloud_api", "random"
-	JitterMs       int    `json:"jitter_ms"`        // Среднее время jitter
+	Profile        string `json:"profile"`   // "chrome", "youtube", "cloud_api", "random"
+	JitterMs       int    `json:"jitter_ms"` // Среднее время jitter
 	PaddingEnabled bool   `json:"padding_enabled"`
 	DecoyEnabled   bool   `json:"decoy_enabled"`
 	TLSFingerprint string `json:"tls_fingerprint"` // "chrome", "firefox", "safari", "random"
@@ -79,21 +82,21 @@ type DNSConfig struct {
 // FeaturesConfig управление модулями
 type FeaturesConfig struct {
 	Compression    bool `json:"compression"`     // Gzip сжатие трафика
-	ConnectionPool bool `json:"connection_pool"`  // Переиспользование соединений
-	SmartRouting   bool `json:"smart_routing"`    // Оптимизация маршрутов
-	MeshNetwork    bool `json:"mesh_network"`     // Mesh-сеть между нодами
-	OfflineFirst   bool `json:"offline_first"`    // Offline-first архитектура
-	AIAdapter      bool `json:"ai_adapter"`       // AI-адаптивное переключение
-	Dashboard      bool `json:"dashboard"`        // Веб-дашборд
-	AutoProxy      bool `json:"auto_proxy"`       // Авто-настройка системного прокси
+	ConnectionPool bool `json:"connection_pool"` // Переиспользование соединений
+	SmartRouting   bool `json:"smart_routing"`   // Оптимизация маршрутов
+	MeshNetwork    bool `json:"mesh_network"`    // Mesh-сеть между нодами
+	OfflineFirst   bool `json:"offline_first"`   // Offline-first архитектура
+	AIAdapter      bool `json:"ai_adapter"`      // AI-адаптивное переключение
+	Dashboard      bool `json:"dashboard"`       // Веб-дашборд
+	AutoProxy      bool `json:"auto_proxy"`      // Авто-настройка системного прокси
 }
 
 // TransportConfig2 настройки транспорта (2 чтобы не конфликтовать с TransportConfig)
 type TransportConfig2 struct {
-	Mode       string   `json:"mode"`        // "web_mirror", "quic", "websocket", "auto"
-	SNIList    []string `json:"sni_list"`    // Список SNI для маскировки
-	CDNList    []string `json:"cdn_list"`    // Список CDN для WebSocket
-	Fallback   bool     `json:"fallback"`    // Автопереключение при блокировке
+	Mode     string   `json:"mode"`     // "web_mirror", "quic", "websocket", "auto"
+	SNIList  []string `json:"sni_list"` // Список SNI для маскировки
+	CDNList  []string `json:"cdn_list"` // Список CDN для WebSocket
+	Fallback bool     `json:"fallback"` // Автопереключение при блокировке
 }
 
 // DefaultConfig возвращает конфигурацию по умолчанию
@@ -136,7 +139,7 @@ func DefaultConfig() *Config {
 			OfflineFirst:   false,
 			AIAdapter:      true,
 			Dashboard:      true,
-			AutoProxy:      false,
+			AutoProxy:      true,
 		},
 		Transport: TransportConfig2{
 			Mode:     "auto",

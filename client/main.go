@@ -86,9 +86,17 @@ func runInteractiveMenu(ui *common.UI) {
 			proxyStatus = common.T("[ON]", "[ВКЛ]")
 		}
 
+		// Upstream proxy info
+		cfg, _ := common.LoadConfig(common.GetConfigPath())
+		upstreamDesc := common.T("Not set — direct traffic", "Не задан — прямой трафик")
+		if cfg.UpstreamProxy != "" {
+			upstreamDesc = cfg.UpstreamProxy
+		}
+
 		items := []common.MenuItem{
 			{LabelEN: "Start Tunnel", LabelRU: "Запустить туннель", DescEN: "SOCKS5 + auto-proxy", DescRU: "SOCKS5 + авто-прокси"},
 			{LabelEN: "Connect to Server", LabelRU: "Подключиться к серверу", DescEN: "Via remote SOVA server", DescRU: "Через удалённый сервер"},
+			{LabelEN: "Upstream Proxy", LabelRU: "Upstream прокси", DescEN: upstreamDesc, DescRU: upstreamDesc},
 			{LabelEN: "System Proxy " + proxyStatus, LabelRU: "Системный прокси " + proxyStatus, DescEN: "Route ALL traffic through SOVA", DescRU: "Весь трафик через SOVA"},
 			{LabelEN: "Configuration", LabelRU: "Конфигурация", DescEN: "View & edit settings", DescRU: "Настройки"},
 			{LabelEN: "Modules", LabelRU: "Модули", DescEN: "Toggle features on/off", DescRU: "Вкл/выкл модули"},
@@ -105,18 +113,20 @@ func runInteractiveMenu(ui *common.UI) {
 		case 1:
 			menuConnect(ui)
 		case 2:
-			menuSystemProxy(ui)
+			menuUpstreamProxy(ui)
 		case 3:
-			menuConfig(ui)
+			menuSystemProxy(ui)
 		case 4:
-			menuModules(ui)
+			menuConfig(ui)
 		case 5:
+			menuModules(ui)
+		case 6:
 			handleStatus(ui)
 			waitEnter()
-		case 6:
+		case 7:
 			ui.PrintHelp()
 			waitEnter()
-		case -1, 7:
+		case -1, 8:
 			fmt.Println()
 			ui.PrintSuccess(common.T("Goodbye! Stay free!", "До свидания! Оставайтесь свободными!"))
 			return
@@ -133,6 +143,68 @@ func menuConnect(ui *common.UI) {
 		return
 	}
 	startRemoteTunnel(ui, addr)
+}
+
+func menuUpstreamProxy(ui *common.UI) {
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+	fmt.Println()
+	if cfg.UpstreamProxy != "" {
+		fmt.Printf("  %s%s%s %s%s%s\n", common.Purple7, common.Bold,
+			common.T("Current upstream:", "Текущий upstream:"), common.Reset+common.Gold+common.Bold, cfg.UpstreamProxy, common.Reset)
+	} else {
+		fmt.Printf("  %s%s%s\n", common.Yellow,
+			common.T("No upstream proxy set — traffic goes direct from your IP", "Upstream не задан — трафик идёт напрямую с вашего IP"), common.Reset)
+	}
+
+	fmt.Println()
+	fmt.Printf("  %s%s%s\n", common.Dim,
+		common.T("Formats: socks5://host:port  http://host:port  host:port",
+			"Форматы: socks5://host:port  http://host:port  host:port"), common.Reset)
+	fmt.Printf("  %s%s%s\n", common.Dim,
+		common.T("Enter 'clear' to remove upstream proxy",
+			"Введите 'clear' чтобы убрать upstream прокси"), common.Reset)
+	fmt.Println()
+
+	fmt.Printf("  %s%s%s ", common.Purple7,
+		common.T("Upstream proxy: ", "Upstream прокси: "), common.Reset)
+	reader := bufio.NewReader(os.Stdin)
+	addr, _ := reader.ReadString('\n')
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return
+	}
+
+	if addr == "clear" || addr == "none" || addr == "off" || addr == "0" {
+		cfg.UpstreamProxy = ""
+		if err := cfg.Save(common.GetConfigPath()); err != nil {
+			ui.PrintError(err)
+			return
+		}
+		ui.PrintSuccess(common.T("Upstream proxy removed — direct mode", "Upstream прокси убран — прямой режим"))
+		waitEnter()
+		return
+	}
+
+	// Validate the proxy URL
+	_, err := common.CreateUpstreamDialer(addr)
+	if err != nil {
+		ui.PrintError(fmt.Errorf(common.T("Invalid proxy: %v", "Ошибка прокси: %v"), err))
+		waitEnter()
+		return
+	}
+
+	cfg.UpstreamProxy = addr
+	if err := cfg.Save(common.GetConfigPath()); err != nil {
+		ui.PrintError(err)
+		waitEnter()
+		return
+	}
+	ui.PrintSuccess(fmt.Sprintf(common.T(
+		"Upstream proxy set: %s — tunnel will route ALL traffic through it",
+		"Upstream прокси установлен: %s — туннель направит ВЕСЬ трафик через него",
+	), addr))
+	waitEnter()
 }
 
 func menuSystemProxy(ui *common.UI) {
@@ -285,6 +357,8 @@ func applyConfigSetting(cfg *common.Config, key, value string) bool {
 			return false
 		}
 		cfg.Stealth.JitterMs = jitter
+	case "upstream_proxy":
+		cfg.UpstreamProxy = value
 	default:
 		return false
 	}
@@ -418,6 +492,25 @@ func startTunnel(ui *common.UI) {
 	ui.PrintStatus(fmt.Sprintf("Starting SOCKS5 proxy on %s...", listenAddr), common.Green)
 
 	socks := common.NewSOCKS5Server(listenAddr, ui)
+
+	// Upstream proxy chaining — маршрутизация трафика через внешний прокси/VPN
+	if cfg.UpstreamProxy != "" {
+		ui.PrintStatus(fmt.Sprintf("Chaining through upstream proxy %s...", cfg.UpstreamProxy), common.Cyan)
+		dialer, err := common.CreateUpstreamDialer(cfg.UpstreamProxy)
+		if err != nil {
+			ui.PrintError(fmt.Errorf("upstream proxy failed: %v", err))
+			ui.PrintWarning("Falling back to direct connections (foreign sites may not work)")
+		} else {
+			socks.RemoteDialer = dialer
+			ui.PrintSuccess(fmt.Sprintf("Traffic chained through %s — IP changed!", cfg.UpstreamProxy))
+		}
+	} else {
+		ui.PrintWarning(common.T(
+			"No upstream proxy configured — traffic exits from YOUR IP. Set upstream_proxy for VPN-like mode.",
+			"Upstream прокси не настроен — трафик идёт с ВАШЕГО IP. Настройте upstream_proxy для VPN-режима.",
+		))
+	}
+
 	if err := socks.Start(); err != nil {
 		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
 	}
@@ -629,6 +722,8 @@ func handleConfig(ui *common.UI) {
 				ui.ExitWithError(fmt.Errorf("invalid jitter: %s", value))
 			}
 			cfg.Stealth.JitterMs = jitter
+		case "upstream_proxy":
+			cfg.UpstreamProxy = value
 		default:
 			ui.ExitWithError(fmt.Errorf("unknown config key: %s", key))
 		}

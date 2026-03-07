@@ -597,6 +597,12 @@ func (ui *UI) PrintConfig(cfg *Config) {
 		ui.PrintKeyValue("API Address:", fmt.Sprintf("%s:%d", cfg.API.Host, cfg.API.Port))
 	}
 	ui.PrintKeyValue("Dashboard:", boolToStatus(cfg.Features.Dashboard))
+	ui.PrintKeyValue("Auto Proxy:", boolToStatus(cfg.Features.AutoProxy))
+	if cfg.UpstreamProxy != "" {
+		ui.PrintKeyValue("Upstream Proxy:", Gold+Bold+cfg.UpstreamProxy+Reset)
+	} else {
+		ui.PrintKeyValue("Upstream Proxy:", Dim+"not set (direct)"+Reset)
+	}
 	ui.PrintKeyValue("Transport:", cfg.Transport.Mode)
 	ui.PrintKeyValue("Log Level:", cfg.LogLevel)
 	fmt.Println()
@@ -752,6 +758,12 @@ func (ui *UI) PrintTunnelActive(listenAddr string, cfg *Config) {
 	ui.PrintKeyValue("Stealth:", cfg.Stealth.Profile)
 	if cfg.API.Enabled {
 		ui.PrintKeyValue("API:", fmt.Sprintf("http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
+	}
+	if cfg.UpstreamProxy != "" {
+		ui.PrintKeyValue("Upstream:", Gold+Bold+cfg.UpstreamProxy+Reset)
+	}
+	if cfg.Features.AutoProxy {
+		ui.PrintKeyValue("System Proxy:", BrightGreen+Bold+"ON — all system traffic routed"+Reset)
 	}
 	fmt.Println()
 	fmt.Printf("  %sConfigure your browser or system proxy:%s\n", Dim, Reset)
