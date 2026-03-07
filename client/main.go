@@ -80,9 +80,16 @@ func runInteractiveMenu(ui *common.UI) {
 	common.CurrentLang = common.SelectLanguage()
 
 	for {
+		// Проверяем текущий статус системного прокси
+		proxyStatus := common.T("[OFF]", "[ВЫКЛ]")
+		if common.IsSystemProxySet() {
+			proxyStatus = common.T("[ON]", "[ВКЛ]")
+		}
+
 		items := []common.MenuItem{
-			{LabelEN: "Start Tunnel", LabelRU: "Запустить туннель", DescEN: "SOCKS5 proxy 127.0.0.1:1080", DescRU: "SOCKS5 прокси 127.0.0.1:1080"},
+			{LabelEN: "Start Tunnel", LabelRU: "Запустить туннель", DescEN: "SOCKS5 + auto-proxy", DescRU: "SOCKS5 + авто-прокси"},
 			{LabelEN: "Connect to Server", LabelRU: "Подключиться к серверу", DescEN: "Via remote SOVA server", DescRU: "Через удалённый сервер"},
+			{LabelEN: "System Proxy " + proxyStatus, LabelRU: "Системный прокси " + proxyStatus, DescEN: "Route ALL traffic through SOVA", DescRU: "Весь трафик через SOVA"},
 			{LabelEN: "Configuration", LabelRU: "Конфигурация", DescEN: "View & edit settings", DescRU: "Настройки"},
 			{LabelEN: "Modules", LabelRU: "Модули", DescEN: "Toggle features on/off", DescRU: "Вкл/выкл модули"},
 			{LabelEN: "Status", LabelRU: "Статус", DescEN: "System info", DescRU: "Информация о системе"},
@@ -98,16 +105,18 @@ func runInteractiveMenu(ui *common.UI) {
 		case 1:
 			menuConnect(ui)
 		case 2:
-			menuConfig(ui)
+			menuSystemProxy(ui)
 		case 3:
-			menuModules(ui)
+			menuConfig(ui)
 		case 4:
+			menuModules(ui)
+		case 5:
 			handleStatus(ui)
 			waitEnter()
-		case 5:
+		case 6:
 			ui.PrintHelp()
 			waitEnter()
-		case -1, 6:
+		case -1, 7:
 			fmt.Println()
 			ui.PrintSuccess(common.T("Goodbye! Stay free!", "До свидания! Оставайтесь свободными!"))
 			return
@@ -124,6 +133,35 @@ func menuConnect(ui *common.UI) {
 		return
 	}
 	startRemoteTunnel(ui, addr)
+}
+
+func menuSystemProxy(ui *common.UI) {
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+	listenAddr := cfg.ListenAddress()
+
+	if common.IsSystemProxySet() {
+		// Прокси включен — предлагаем выключить
+		fmt.Printf("\n  %s%s%s\n", common.Gold+common.Bold,
+			common.T("System proxy is ON — disabling...", "Системный прокси ВКЛ — отключаем..."), common.Reset)
+		if err := common.ClearSystemProxy(); err != nil {
+			ui.PrintError(fmt.Errorf(common.T("Failed to clear proxy: %v", "Ошибка сброса прокси: %v"), err))
+		} else {
+			ui.PrintSuccess(common.T("System proxy disabled", "Системный прокси отключён"))
+		}
+	} else {
+		// Прокси выключен — включаем
+		fmt.Printf("\n  %s%s%s\n", common.Cyan+common.Bold,
+			common.T("Enabling system proxy → "+listenAddr, "Включаем системный прокси → "+listenAddr), common.Reset)
+		if err := common.SetSystemProxy(listenAddr); err != nil {
+			ui.PrintError(fmt.Errorf(common.T("Failed to set proxy: %v", "Ошибка установки прокси: %v"), err))
+		} else {
+			ui.PrintSuccess(common.T(
+				"System proxy ON — ALL traffic routed through SOVA ("+listenAddr+")",
+				"Системный прокси ВКЛ — ВЕСЬ трафик через SOVA ("+listenAddr+")",
+			))
+		}
+	}
+	waitEnter()
 }
 
 func menuConfig(ui *common.UI) {
@@ -384,6 +422,18 @@ func startTunnel(ui *common.UI) {
 		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
 	}
 
+	// Авто-настройка системного прокси
+	autoProxy := cfg.Features.AutoProxy
+	if autoProxy {
+		ui.PrintStatus("Configuring system proxy...", common.Cyan)
+		if err := common.SetSystemProxy(listenAddr); err != nil {
+			ui.PrintWarning(fmt.Sprintf("Auto-proxy failed: %v", err))
+			autoProxy = false
+		} else {
+			ui.PrintSuccess("System proxy configured — ALL traffic routed through SOVA")
+		}
+	}
+
 	// Анимация подключения
 	ui.AnimateConnection()
 
@@ -403,6 +453,17 @@ func startTunnel(ui *common.UI) {
 		case <-sigChan:
 			fmt.Println()
 			ui.PrintStatus("Shutting down SOVA...", common.Yellow)
+
+			// Восстановить системный прокси
+			if autoProxy {
+				ui.PrintStatus("Restoring system proxy settings...", common.Yellow)
+				if err := common.ClearSystemProxy(); err != nil {
+					ui.PrintWarning(fmt.Sprintf("Failed to restore proxy: %v", err))
+				} else {
+					ui.PrintSuccess("System proxy restored")
+				}
+			}
+
 			socks.Stop()
 			if cancel != nil {
 				cancel()
@@ -467,10 +528,25 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
 	}
 
+	// Авто-настройка системного прокси
+	autoProxy := cfg.Features.AutoProxy
+	if autoProxy {
+		ui.PrintStatus("Configuring system proxy...", common.Cyan)
+		if err := common.SetSystemProxy(listenAddr); err != nil {
+			ui.PrintWarning(fmt.Sprintf("Auto-proxy failed: %v", err))
+			autoProxy = false
+		} else {
+			ui.PrintSuccess("System proxy configured — ALL traffic via SOVA server")
+		}
+	}
+
 	ui.PrintSection("SOVA Remote Tunnel Active")
 	ui.PrintKeyValue("Server:", serverAddr)
 	ui.PrintKeyValue("Local proxy:", listenAddr)
 	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (PQ-encrypted)")
+	if autoProxy {
+		ui.PrintKeyValue("System proxy:", common.Gold+common.Bold+"ON — all traffic routed"+common.Reset)
+	}
 	fmt.Println()
 	fmt.Printf("%s  Press Ctrl+C to stop%s\n", common.Dim, common.Reset)
 
@@ -479,6 +555,11 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 	<-sigChan
 
 	fmt.Println()
+	if autoProxy {
+		ui.PrintStatus("Restoring system proxy...", common.Yellow)
+		common.ClearSystemProxy()
+		ui.PrintSuccess("System proxy restored")
+	}
 	socks.Stop()
 	ui.PrintSuccess("Disconnected from server")
 }
