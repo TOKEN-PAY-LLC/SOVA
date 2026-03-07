@@ -69,23 +69,52 @@ function Install-Directories {
     Write-Ok "Directories created"
 }
 
-function Install-Binary {
-    param($Component, $Arch)
-    $url = "$BaseURL/sova-$Component-windows-$Arch.exe"
-    if ($Component -eq "client") {
-        $dest = "$InstallDir\sova.exe"
-    } else {
-        $dest = "$InstallDir\sova-server.exe"
-    }
+function Install-FromRelease {
+    param($Arch)
+    $zipName = "sova-windows-$Arch-v$Version.zip"
+    $url = "$BaseURL/$zipName"
+    $zipPath = "$env:TEMP\$zipName"
 
-    Write-Info "Downloading sova-$Component..."
+    Write-Info "Downloading $zipName..."
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -ErrorAction Stop
-        Write-Ok "Downloaded sova-$Component to $dest"
-        return $true
+        Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -ErrorAction Stop
+        Write-Ok "Downloaded release archive"
     } catch {
         Write-Warn "Download failed: $($_.Exception.Message)"
+        return $false
+    }
+
+    Write-Info "Extracting binaries..."
+    try {
+        $extractDir = "$env:TEMP\sova-extract-$([System.IO.Path]::GetRandomFileName())"
+        New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractDir)
+
+        $serverSrc = Get-ChildItem -Path $extractDir -Filter "sova-server*" -Recurse | Select-Object -First 1
+        $clientSrc = Get-ChildItem -Path $extractDir -Filter "sova-windows*" -Recurse | Select-Object -First 1
+        if (-not $clientSrc) {
+            $clientSrc = Get-ChildItem -Path $extractDir -Filter "sova-*" -Recurse | Where-Object { $_.Name -notmatch "server" } | Select-Object -First 1
+        }
+
+        if ($serverSrc) {
+            Copy-Item $serverSrc.FullName "$InstallDir\sova-server.exe" -Force
+            Write-Ok "Installed sova-server.exe"
+        }
+        if ($clientSrc) {
+            Copy-Item $clientSrc.FullName "$InstallDir\sova.exe" -Force
+            Write-Ok "Installed sova.exe"
+        }
+
+        Remove-Item -Recurse -Force $extractDir -ErrorAction SilentlyContinue
+        Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
+
+        if ($serverSrc -and $clientSrc) { return $true }
+        Write-Warn "Some binaries missing from archive"
+        return $false
+    } catch {
+        Write-Warn "Extract failed: $($_.Exception.Message)"
         return $false
     }
 }
@@ -270,9 +299,8 @@ Write-Info "Platform: windows/$arch"
 
 Install-Directories
 
-$serverOk = Install-Binary "server" $arch
-$clientOk = Install-Binary "client" $arch
-if (-not $serverOk -or -not $clientOk) {
+$downloaded = Install-FromRelease $arch
+if (-not $downloaded) {
     Write-Info "Falling back to build from source..."
     Build-FromSource
 }

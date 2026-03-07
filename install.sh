@@ -93,35 +93,63 @@ check_root() {
     fi
 }
 
-download_binary() {
-    local component=$1
-    local url="${BASE_URL}/sova-${component}-${OS}-${ARCH}"
-    if [ "$component" = "client" ]; then
-        local dest="${INSTALL_DIR}/sova"
-    else
-        local dest="${INSTALL_DIR}/sova-server"
-    fi
+download_from_release() {
+    local archive="sova-${OS}-${ARCH}-v${VERSION}.tar.gz"
+    local url="${BASE_URL}/${archive}"
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    local archive_path="${tmp_dir}/${archive}"
 
-    log_info "Downloading sova-${component}..."
+    log_info "Downloading ${archive}..."
 
     if command -v curl &>/dev/null; then
-        $SUDO curl -fsSL -o "$dest" "$url" 2>/dev/null || {
+        curl -fsSL -o "$archive_path" "$url" 2>/dev/null || {
             log_warn "Download failed, will try build from source"
+            rm -rf "$tmp_dir"
             return 1
         }
     elif command -v wget &>/dev/null; then
-        $SUDO wget -q -O "$dest" "$url" 2>/dev/null || {
+        wget -q -O "$archive_path" "$url" 2>/dev/null || {
             log_warn "Download failed, will try build from source"
+            rm -rf "$tmp_dir"
             return 1
         }
     else
         log_error "curl or wget required"
+        rm -rf "$tmp_dir"
         return 1
     fi
 
-    $SUDO chmod +x "$dest"
-    log_ok "Installed sova-${component} to ${dest}"
-    return 0
+    log_info "Extracting binaries..."
+    tar -xzf "$archive_path" -C "$tmp_dir" 2>/dev/null || {
+        log_warn "Extract failed"
+        rm -rf "$tmp_dir"
+        return 1
+    }
+
+    local server_bin
+    server_bin=$(find "$tmp_dir" -name "sova-server*" -type f | head -1)
+    local client_bin
+    client_bin=$(find "$tmp_dir" -name "sova-*" -not -name "sova-server*" -not -name "*.tar.gz" -type f | head -1)
+
+    if [ -n "$server_bin" ]; then
+        $SUDO cp "$server_bin" "${INSTALL_DIR}/sova-server"
+        $SUDO chmod +x "${INSTALL_DIR}/sova-server"
+        log_ok "Installed sova-server"
+    fi
+    if [ -n "$client_bin" ]; then
+        $SUDO cp "$client_bin" "${INSTALL_DIR}/sova"
+        $SUDO chmod +x "${INSTALL_DIR}/sova"
+        log_ok "Installed sova"
+    fi
+
+    rm -rf "$tmp_dir"
+
+    if [ -n "$server_bin" ] && [ -n "$client_bin" ]; then
+        return 0
+    fi
+    log_warn "Some binaries missing from archive"
+    return 1
 }
 
 find_source_dir() {
@@ -305,7 +333,7 @@ check_root
 setup_directories
 
 # Try download first, fall back to build
-if ! download_binary "server" || ! download_binary "client"; then
+if ! download_from_release; then
     log_info "Falling back to build from source..."
     build_from_source
 fi
