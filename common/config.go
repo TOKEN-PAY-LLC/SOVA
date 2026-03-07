@@ -44,6 +44,9 @@ type Config struct {
 	// Upstream прокси для цепочки (socks5://host:port или http://host:port)
 	UpstreamProxy string `json:"upstream_proxy"`
 
+	// Pre-shared key для SOVA протокола (аутентификация клиент↔сервер)
+	PSK string `json:"psk"`
+
 	mu sync.RWMutex `json:"-"`
 }
 
@@ -142,11 +145,21 @@ func DefaultConfig() *Config {
 			AutoProxy:      true,
 		},
 		Transport: TransportConfig2{
-			Mode:     "auto",
-			SNIList:  []string{"www.google.com", "cdn.cloudflare.com", "aws.amazon.com"},
+			Mode: "auto",
+			SNIList: []string{
+				"www.google.com",
+				"cdn.cloudflare.com",
+				"ajax.googleapis.com",
+				"fonts.googleapis.com",
+				"www.youtube.com",
+				"play.google.com",
+				"www.gstatic.com",
+				"update.googleapis.com",
+			},
 			CDNList:  []string{"cdn.cloudflare.com", "fastly.net"},
 			Fallback: true,
 		},
+		PSK: DefaultPSK,
 	}
 }
 

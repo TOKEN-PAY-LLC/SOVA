@@ -10,7 +10,7 @@ import (
 )
 
 // Version версия протокола
-const Version = "1.0.0"
+const Version = "2.2.0"
 
 // ANSI escape codes
 const (

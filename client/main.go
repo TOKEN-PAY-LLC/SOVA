@@ -613,9 +613,20 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 
 	socks := common.NewSOCKS5Server(listenAddr, ui)
 
-	// Remote dialer: подключаемся к серверу для каждого соединения
-	// В будущем — мультиплексирование через одно соединение
-	socks.RemoteDialer = common.CreateRemoteDialer(serverAddr)
+	// SOVA protocol dialer: TLS + DPI evasion + encrypted frames
+	psk := cfg.PSK
+	if psk == "" {
+		psk = common.DefaultPSK
+	}
+	dpiCfg := common.DPIConfigFromConfig(cfg)
+
+	ui.PrintStatus("SOVA Protocol: TLS + AES-256-GCM + DPI evasion", common.Cyan)
+	if dpiCfg.FragmentClientHello {
+		ui.PrintSuccess(fmt.Sprintf("DPI bypass: ClientHello fragmentation (%d bytes), SNI spoofing, jitter %dms",
+			dpiCfg.FragmentSize, dpiCfg.FragmentJitterMs))
+	}
+
+	socks.RemoteDialer = common.CreateSOVARemoteDialer(serverAddr, psk, dpiCfg)
 
 	if err := socks.Start(); err != nil {
 		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
@@ -633,10 +644,12 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 		}
 	}
 
-	ui.PrintSection("SOVA Remote Tunnel Active")
-	ui.PrintKeyValue("Server:", serverAddr)
+	ui.PrintSection("🦉 SOVA Remote Tunnel Active")
+	ui.PrintKeyValue("Server:", common.Gold+common.Bold+serverAddr+common.Reset)
 	ui.PrintKeyValue("Local proxy:", listenAddr)
-	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (PQ-encrypted)")
+	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (TLS + AES-256-GCM)")
+	ui.PrintKeyValue("DPI Evasion:", "ClientHello frag + SNI spoof + jitter")
+	ui.PrintKeyValue("Transport:", "TLS 1.3 (looks like HTTPS to ISP)")
 	if autoProxy {
 		ui.PrintKeyValue("System proxy:", common.Gold+common.Bold+"ON — all traffic routed"+common.Reset)
 	}

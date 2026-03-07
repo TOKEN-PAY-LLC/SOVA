@@ -9,12 +9,20 @@ import (
 
 // ServerConfig конфигурация сервера
 type ServerConfig struct {
-	Port         int                    `json:"port"`
-	API          APIConfig              `json:"api"`
-	Security     SecurityConfig         `json:"security"`
-	Users        map[string]*common.UserCredentials `json:"users"`
-	Transports   []string               `json:"transports"`
-	SNIList      []string               `json:"sni_list"`
+	Port       int                                `json:"port"`
+	API        APIConfig                          `json:"api"`
+	Security   SecurityConfig                     `json:"security"`
+	Users      map[string]*common.UserCredentials `json:"users"`
+	Transports []string                           `json:"transports"`
+	SNIList    []string                           `json:"sni_list"`
+	WebSocket  WebSocketConfig                    `json:"websocket"`
+}
+
+// WebSocketConfig настройки WebSocket relay для обхода мобильных ISP
+type WebSocketConfig struct {
+	Enabled bool   `json:"enabled"`
+	Port    int    `json:"port"`
+	Path    string `json:"path"`
 }
 
 // APIConfig конфигурация API
@@ -76,6 +84,11 @@ func DefaultConfig() *ServerConfig {
 		Users:      make(map[string]*common.UserCredentials),
 		Transports: []string{"web_mirror", "cloud_carrier", "shadow_websocket"},
 		SNIList:    []string{"sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"},
+		WebSocket: WebSocketConfig{
+			Enabled: true,
+			Port:    9444,
+			Path:    "/sova-ws",
+		},
 	}
 }
 
@@ -95,13 +108,13 @@ func ValidateConfig(config *ServerConfig) error {
 
 // ClientConfig конфигурация клиента
 type ClientConfig struct {
-	ServerAddr   string   `json:"server_addr"`
-	UserID       string   `json:"user_id"`
-	Password     string   `json:"password"`
-	ProxyPort    int      `json:"proxy_port"`
-	Transports   []string `json:"transports"`
-	SNIList      []string `json:"sni_list"`
-	AutoConnect  bool     `json:"auto_connect"`
+	ServerAddr  string   `json:"server_addr"`
+	UserID      string   `json:"user_id"`
+	Password    string   `json:"password"`
+	ProxyPort   int      `json:"proxy_port"`
+	Transports  []string `json:"transports"`
+	SNIList     []string `json:"sni_list"`
+	AutoConnect bool     `json:"auto_connect"`
 }
 
 // LoadClientConfig загружает клиентскую конфигурацию

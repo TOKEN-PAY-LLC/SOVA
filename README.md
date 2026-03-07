@@ -1,4 +1,4 @@
-# 🦉 SOVA Protocol v1.0.0
+# 🦉 SOVA Protocol v2.1.0
 
 ```
          ▄▄▄████▄▄▄

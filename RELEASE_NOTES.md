@@ -1,5 +1,41 @@
 # Release Notes
 
+## v2.1.0 — March 2026
+
+### Mobile ISP Bypass — WebSocket Relay
+
+Mobile ISPs block non-standard ports (9443, etc.), causing SOVA timeout on cellular data.
+v2.1.0 adds native WebSocket relay support, enabling traffic to flow through nginx:443
+as standard HTTPS — invisible to ISP DPI.
+
+**Architecture:**
+```
+Client (Hiddify/sing-box) → cupol.space:443/sova-ws (HTTPS WebSocket)
+     → nginx (TLS termination + WS upgrade)
+     → xray VMess+WS inbound (127.0.0.1:9444)
+     → internet
+```
+
+### Changes
+
+- **WebSocket relay** — `relay.go` now supports WS connections via `gorilla/websocket`
+- **WSConn adapter** — `net.Conn`-compatible wrapper for WebSocket, enabling reuse of all existing relay logic
+- **Server config** — new `websocket` section with `enabled`, `port`, `path` fields
+- **Auto-enable** — WS relay starts automatically when transport mode is `websocket` or `auto`
+- **Health endpoint** — `/health` on WS relay port returns JSON status
+- **CUPOL integration** — CSUB now injects `CUPOL-SOVA` as VMess+WS+TLS outbound on port 443
+- **Streisand support** — `vmess://` share link generated for V2RayNG/Streisand clients
+- **Dashboard** — version badge updated to v2.1, mobile-safe subtitle added
+- **Protocol switch** — SOVA moved from Shadowsocks AEAD to VMess+WS+TLS (sing-box doesn't support transport on SS)
+
+### Why VMess instead of Shadowsocks?
+
+sing-box 1.x does NOT support the `transport` field on shadowsocks outbound/inbound.
+VMess+WebSocket is universally supported by xray (server) and sing-box/Hiddify (client),
+making it the most reliable choice for mobile ISP bypass.
+
+---
+
 ## v1.0.0 — March 2026
 
 ```

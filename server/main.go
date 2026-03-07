@@ -117,7 +117,17 @@ func startServer(ui *common.UI) {
 	relayAddr := fmt.Sprintf(":%d", cfg.ServerPort)
 	ui.PrintStatus(fmt.Sprintf("Starting SOVA relay on %s...", relayAddr), common.Green)
 
-	relay := NewRelayServer(relayAddr)
+	relay := NewRelayServer(relayAddr, cfg.PSK)
+
+	// WebSocket relay — обход блокировки мобильными ISP (порт 443 через nginx)
+	if cfg.Transport.Mode == "websocket" || cfg.Transport.Mode == "auto" {
+		wsPort := 9444
+		wsPath := "/sova-ws"
+		wsAddr := fmt.Sprintf("127.0.0.1:%d", wsPort)
+		relay.EnableWebSocket(wsAddr, wsPath)
+		ui.PrintStatus(fmt.Sprintf("WebSocket relay on %s%s (mobile-safe)", wsAddr, wsPath), common.Cyan)
+	}
+
 	if err := relay.Start(); err != nil {
 		ui.ExitWithError(fmt.Errorf("relay server failed: %v", err))
 	}
@@ -126,6 +136,9 @@ func startServer(ui *common.UI) {
 
 	ui.PrintSection("SOVA Server Active")
 	ui.PrintKeyValue("Relay:", relayAddr)
+	if relay.wsEnabled {
+		ui.PrintKeyValue("WebSocket:", fmt.Sprintf("%s%s", relay.wsAddr, relay.wsPath))
+	}
 	if cfg.API.Enabled {
 		ui.PrintKeyValue("API:", fmt.Sprintf("http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
 		ui.PrintKeyValue("Dashboard:", fmt.Sprintf("http://%s:%d/", cfg.API.Host, cfg.API.Port))
@@ -137,7 +150,8 @@ func startServer(ui *common.UI) {
 	ui.PrintKeyValue("AI Adapter:", boolStr(cfg.Features.AIAdapter))
 	fmt.Println()
 	ui.PrintDivider()
-	fmt.Printf("%s  Clients connect: sova connect <server-ip>:%d%s\n", common.Dim, cfg.ServerPort, common.Reset)
+	fmt.Printf("%s  TCP:       sova connect <server-ip>:%d%s\n", common.Dim, cfg.ServerPort, common.Reset)
+	fmt.Printf("%s  WebSocket: wss://<domain>/sova-ws (via nginx:443)%s\n", common.Dim, common.Reset)
 	fmt.Printf("%s  Press Ctrl+C to stop%s\n", common.Dim, common.Reset)
 	fmt.Println()
 

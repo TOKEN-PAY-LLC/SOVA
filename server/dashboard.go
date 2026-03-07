@@ -63,11 +63,11 @@ func (d *Dashboard) handleDashboardConnections(w http.ResponseWriter, r *http.Re
 	var connList []map[string]interface{}
 	for id, conn := range conns {
 		connList = append(connList, map[string]interface{}{
-			"id":        id,
-			"client_ip": conn.ClientIP,
-			"user_id":   conn.UserID,
-			"duration":  time.Since(conn.StartTime).String(),
-			"bytes_up":  conn.BytesUp,
+			"id":         id,
+			"client_ip":  conn.ClientIP,
+			"user_id":    conn.UserID,
+			"duration":   time.Since(conn.StartTime).String(),
+			"bytes_up":   conn.BytesUp,
 			"bytes_down": conn.BytesDown,
 		})
 	}
@@ -170,8 +170,8 @@ footer a{color:var(--purple-light);text-decoration:none}
     <span class="owl-eyes">🦉</span>
   </div>
   <div>
-    <h1>SOVA Protocol <span class="badge">v2.0</span></h1>
-    <div class="subtitle">Autonomous AI-Powered Protocol Dashboard</div>
+    <h1>SOVA Protocol <span class="badge">v2.1</span></h1>
+    <div class="subtitle">Autonomous AI-Powered Protocol Dashboard &mdash; Mobile-Safe WebSocket Relay</div>
   </div>
 </header>
 
