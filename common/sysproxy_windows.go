@@ -46,9 +46,9 @@ func SetSystemProxy(proxyAddr string) error {
 		}
 	}
 
-	// Устанавливаем SOCKS прокси
-	// Windows Internet Settings: socks=addr:port
-	socksProxy := fmt.Sprintf("socks=%s", proxyAddr)
+	// Устанавливаем SOVA прокси (HTTP CONNECT формат)
+	// Windows Internet Settings нативно поддерживает HTTP CONNECT
+	sovaProxy := proxyAddr
 
 	// Включаем прокси
 	err = exec.Command("reg", "add",
@@ -61,7 +61,7 @@ func SetSystemProxy(proxyAddr string) error {
 	// Устанавливаем адрес прокси
 	err = exec.Command("reg", "add",
 		`HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
-		"/v", "ProxyServer", "/t", "REG_SZ", "/d", socksProxy, "/f").Run()
+		"/v", "ProxyServer", "/t", "REG_SZ", "/d", sovaProxy, "/f").Run()
 	if err != nil {
 		return fmt.Errorf("failed to set proxy address: %v", err)
 	}

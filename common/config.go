@@ -12,8 +12,8 @@ import (
 type Config struct {
 	// Основные настройки
 	Mode       string `json:"mode"`        // "local", "remote", "server"
-	ListenAddr string `json:"listen_addr"` // Адрес SOCKS5 прокси
-	ListenPort int    `json:"listen_port"` // Порт SOCKS5 прокси
+	ListenAddr string `json:"listen_addr"` // Адрес SOVA прокси
+	ListenPort int    `json:"listen_port"` // Порт SOVA прокси
 
 	// Настройки удалённого сервера
 	ServerAddr string `json:"server_addr"` // Адрес удалённого SOVA сервера
@@ -41,7 +41,7 @@ type Config struct {
 	// Транспорт
 	Transport TransportConfig2 `json:"transport"`
 
-	// Upstream прокси для цепочки (socks5://host:port или http://host:port)
+	// Upstream прокси для цепочки (http://host:port)
 	UpstreamProxy string `json:"upstream_proxy"`
 
 	// Pre-shared key для SOVA протокола (аутентификация клиент↔сервер)

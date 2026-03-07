@@ -10,7 +10,7 @@ import (
 )
 
 // Version версия протокола
-const Version = "2.2.0"
+const Version = "1.0.1"
 
 // ANSI escape codes
 const (
@@ -653,7 +653,7 @@ func (ui *UI) PrintFeatures(cfg *Config) {
 func (ui *UI) PrintHelp() {
 	ui.PrintSection("Commands")
 	cmds := []struct{ cmd, desc string }{
-		{"sova", "Start SOVA tunnel (local SOCKS5 proxy)"},
+		{"sova", "Start SOVA tunnel (SOVA proxy)"},
 		{"sova start", "Same as above"},
 		{"sova connect <server>", "Connect through remote SOVA server"},
 		{"sova config", "Show current configuration"},
@@ -709,8 +709,8 @@ func (ui *UI) PrintHelp() {
 
 	ui.PrintSection("Proxy Setup")
 	fmt.Printf("  %sAfter starting SOVA, configure your browser/system proxy:%s\n", Dim, Reset)
-	fmt.Printf("  %sSOCKS5 → 127.0.0.1:1080%s\n", Gold+Bold, Reset)
-	fmt.Printf("  %sOr use: %scurl --proxy socks5h://127.0.0.1:1080 https://youtube.com%s\n", Dim, Yellow, Reset)
+	fmt.Printf("  %sSOVA Proxy → 127.0.0.1:1080%s\n", Gold+Bold, Reset)
+	fmt.Printf("  %sSystem proxy auto-configured, or use: %scurl --proxy http://127.0.0.1:1080 https://youtube.com%s\n", Dim, Yellow, Reset)
 
 	ui.PrintSection("API Endpoints")
 	fmt.Printf("  %sGET  /api/status      %s— System status%s\n", Purple7, Dim, Reset)
@@ -752,8 +752,8 @@ func (ui *UI) PrintDivider() {
 // PrintTunnelActive печатает финальное сообщение об активном туннеле
 func (ui *UI) PrintTunnelActive(listenAddr string, cfg *Config) {
 	ui.PrintSection("🦉 SOVA Tunnel Active")
-	ui.PrintKeyValue("SOCKS5 Proxy:", Gold+Bold+listenAddr+Reset)
-	ui.PrintKeyValue("Protocol:", "SOVA v"+Version+" (PQ-encrypted)")
+	ui.PrintKeyValue("SOVA Proxy:", Gold+Bold+listenAddr+Reset)
+	ui.PrintKeyValue("Protocol:", "SOVA v"+Version+" (TLS + AES-256-GCM)")
 	ui.PrintKeyValue("Encryption:", cfg.Encryption.Algorithm)
 	ui.PrintKeyValue("Stealth:", cfg.Stealth.Profile)
 	if cfg.API.Enabled {
@@ -767,8 +767,8 @@ func (ui *UI) PrintTunnelActive(listenAddr string, cfg *Config) {
 	}
 	fmt.Println()
 	fmt.Printf("  %sConfigure your browser or system proxy:%s\n", Dim, Reset)
-	fmt.Printf("  %s→ SOCKS5 Host: %s  Port: %d%s\n", Gold+Bold, cfg.ListenAddr, cfg.ListenPort, Reset)
-	fmt.Printf("  %s→ curl --proxy socks5h://%s https://youtube.com%s\n", Dim, listenAddr, Reset)
+	fmt.Printf("  %s→ SOVA Proxy: %s:%d%s\n", Gold+Bold, cfg.ListenAddr, cfg.ListenPort, Reset)
+	fmt.Printf("  %s→ curl --proxy http://%s https://youtube.com%s\n", Dim, listenAddr, Reset)
 	fmt.Println()
 	ui.PrintDivider()
 	fmt.Printf("  %sPress Ctrl+C to stop SOVA%s\n", Dim, Reset)

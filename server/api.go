@@ -242,7 +242,7 @@ func (api *ServerAPI) handleProxyConfig(w http.ResponseWriter, r *http.Request) 
 	confs := []ProxyConf{
 		{Name: "xray", URL: "vless://" + "your-sova-server.com"},
 		{Name: "singbox", URL: "sova://" + "your-sova-server.com"},
-		{Name: "generic", URL: "socks5://127.0.0.1:1080"},
+		{Name: "generic", URL: "sova://127.0.0.1:1080"},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(confs)
@@ -263,7 +263,7 @@ func (api *ServerAPI) exportClashConfig(config *common.JSONConfig, userID string
 	return fmt.Sprintf(`{
   "proxies": [{
     "name": "SOVA-%s",
-    "type": "socks5",
+    "type": "http",
     "server": "127.0.0.1",
     "port": 1080,
     "username": "%s",
@@ -281,7 +281,7 @@ func (api *ServerAPI) exportV2RayConfig(config *common.JSONConfig, userID string
 	return fmt.Sprintf(`{
   "inbounds": [{
     "port": 1080,
-    "protocol": "socks",
+    "protocol": "http",
     "settings": {
       "auth": "password",
       "accounts": [{
@@ -316,8 +316,8 @@ func (api *ServerAPI) exportV2RayConfig(config *common.JSONConfig, userID string
 func (api *ServerAPI) exportSingBoxConfig(config *common.JSONConfig, userID string) string {
 	return fmt.Sprintf(`{
   "inbounds": [{
-    "type": "socks",
-    "tag": "socks-in",
+    "type": "http",
+    "tag": "sova-in",
     "listen": "::",
     "listen_port": 1080,
     "users": [{

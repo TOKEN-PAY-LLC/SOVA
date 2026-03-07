@@ -423,7 +423,7 @@ func waitEnter() {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
-// startTunnel — главная функция: запуск локального SOCKS5 прокси
+// startTunnel — главная функция: запуск SOVA прокси
 func startTunnel(ui *common.UI) {
 	// Анимированный баннер
 	ui.PrintBanner()
@@ -487,11 +487,11 @@ func startTunnel(ui *common.UI) {
 		ui.PrintSuccess(fmt.Sprintf("DNS resolver: 127.0.0.1:%d (upstream: %s)", cfg.DNS.Port, cfg.DNS.Upstream))
 	}
 
-	// Запуск SOCKS5 прокси — главный туннель
+	// Запуск SOVA прокси — главный туннель
 	listenAddr := cfg.ListenAddress()
-	ui.PrintStatus(fmt.Sprintf("Starting SOCKS5 proxy on %s...", listenAddr), common.Green)
+	ui.PrintStatus(fmt.Sprintf("Starting SOVA proxy on %s...", listenAddr), common.Green)
 
-	socks := common.NewSOCKS5Server(listenAddr, ui)
+	proxy := common.NewSOVAProxy(listenAddr, ui)
 
 	// Upstream proxy chaining — маршрутизация трафика через внешний прокси/VPN
 	if cfg.UpstreamProxy != "" {
@@ -501,7 +501,7 @@ func startTunnel(ui *common.UI) {
 			ui.PrintError(fmt.Errorf("upstream proxy failed: %v", err))
 			ui.PrintWarning("Falling back to direct connections (foreign sites may not work)")
 		} else {
-			socks.RemoteDialer = dialer
+			proxy.RemoteDialer = dialer
 			ui.PrintSuccess(fmt.Sprintf("Traffic chained through %s — IP changed!", cfg.UpstreamProxy))
 		}
 	} else {
@@ -511,8 +511,8 @@ func startTunnel(ui *common.UI) {
 		))
 	}
 
-	if err := socks.Start(); err != nil {
-		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
+	if err := proxy.Start(); err != nil {
+		ui.ExitWithError(fmt.Errorf("SOVA proxy failed: %v", err))
 	}
 
 	// Авто-настройка системного прокси
@@ -557,11 +557,11 @@ func startTunnel(ui *common.UI) {
 				}
 			}
 
-			socks.Stop()
+			proxy.Stop()
 			if cancel != nil {
 				cancel()
 			}
-			stats := socks.GetStats()
+			stats := proxy.GetStats()
 			ui.PrintSection("Session Summary")
 			ui.PrintKeyValue("Total connections:", fmt.Sprintf("%d", stats["total_connections"]))
 			ui.PrintKeyValue("Traffic uploaded:", formatBytes(stats["bytes_up"]))
@@ -571,7 +571,7 @@ func startTunnel(ui *common.UI) {
 			return
 
 		case <-ticker.C:
-			stats := socks.GetStats()
+			stats := proxy.GetStats()
 			if stats["active_connections"] > 0 || stats["total_connections"] > 0 {
 				ui.PrintStatus(fmt.Sprintf("Active: %d | Total: %d | ↑%s ↓%s",
 					stats["active_connections"],
@@ -607,11 +607,11 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 
 	ui.AnimateConnection()
 
-	// В remote режиме SOCKS5 прокси направляет трафик через сервер
+	// SOVA прокси направляет трафик через удалённый сервер
 	listenAddr := cfg.ListenAddress()
-	ui.PrintStatus(fmt.Sprintf("Starting SOCKS5 proxy on %s (via %s)...", listenAddr, serverAddr), common.Green)
+	ui.PrintStatus(fmt.Sprintf("Starting SOVA proxy on %s (via %s)...", listenAddr, serverAddr), common.Green)
 
-	socks := common.NewSOCKS5Server(listenAddr, ui)
+	proxy := common.NewSOVAProxy(listenAddr, ui)
 
 	// SOVA protocol dialer: TLS + DPI evasion + encrypted frames
 	psk := cfg.PSK
@@ -626,10 +626,10 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 			dpiCfg.FragmentSize, dpiCfg.FragmentJitterMs))
 	}
 
-	socks.RemoteDialer = common.CreateSOVARemoteDialer(serverAddr, psk, dpiCfg)
+	proxy.RemoteDialer = common.CreateSOVARemoteDialer(serverAddr, psk, dpiCfg)
 
-	if err := socks.Start(); err != nil {
-		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
+	if err := proxy.Start(); err != nil {
+		ui.ExitWithError(fmt.Errorf("SOVA proxy failed: %v", err))
 	}
 
 	// Авто-настройка системного прокси
@@ -666,7 +666,7 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 		common.ClearSystemProxy()
 		ui.PrintSuccess("System proxy restored")
 	}
-	socks.Stop()
+	proxy.Stop()
 	ui.PrintSuccess("Disconnected from server")
 }
 

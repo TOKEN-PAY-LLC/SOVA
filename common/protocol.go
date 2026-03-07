@@ -5,7 +5,7 @@ package common
 // SOVA — полностью автономный зашифрованный протокол туннелирования.
 //
 // Архитектура:
-//   [App] → SOCKS5 (local) → SOVA Client ─→ [TLS + SOVA Protocol] ─→ SOVA Server → [Internet]
+//   [App] → SOVA Proxy (local) → SOVA Client ─→ [TLS + SOVA Protocol] ─→ SOVA Server → [Internet]
 //
 // Транспорт:
 //   TLS 1.3 с поддельным SNI (выглядит как HTTPS для DPI)
@@ -277,7 +277,7 @@ func ServerHandshake(conn net.Conn, psk string) (*SOVAConn, error) {
 
 // ── SOVAStream: net.Conn-совместимая обёртка над SOVAConn ──────────────
 // Мост между фреймовым протоколом и byte-stream интерфейсом,
-// который ожидают SOCKS5 тоннель и стандартный Go I/O.
+// который ожидают SOVA тоннель и стандартный Go I/O.
 
 type SOVAStream struct {
 	sc      *SOVAConn
