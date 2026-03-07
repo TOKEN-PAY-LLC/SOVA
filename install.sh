@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# SOVA Protocol v2.0 - Autonomous Installer for Linux/macOS
+# SOVA Protocol v1.0 - Autonomous Installer for Linux/macOS
 # No dependencies required except bash and curl/wget
 # Usage: curl -fsSL https://raw.githubusercontent.com/IvanChernykh/SOVA/main/install.sh | bash
 
 set -euo pipefail
 
-VERSION="2.0.0"
+VERSION="1.0.0"
 BASE_URL="https://github.com/IvanChernykh/SOVA/releases/download/v${VERSION}"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/sova"

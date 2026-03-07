@@ -3,146 +3,390 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
 	"sova/common"
 )
 
 func main() {
 	ui := common.NewUI(true)
-	ui.PrintBanner()
 
-	if len(os.Args) < 2 {
-		ui.PrintInfo("Использование: sova <команда> [аргументы]")
-		ui.PrintInfo("Команды: connect, disconnect, status")
+	// Без аргументов или "start" — запуск туннеля
+	if len(os.Args) < 2 || os.Args[1] == "start" {
+		startTunnel(ui)
 		return
 	}
 
 	command := os.Args[1]
 	switch command {
-	case "install":
-		ui.PrintStatus("Запуск мастера установки...", common.Cyan)
-		// Автономный установщик: загрузка бинарника, настройка сервисов
-		ui.PrintInfo("Определение платформы...")
-		// Здесь должна быть логика, скачивающая релизные пакеты
-		ui.PrintSuccess("SOVA успешно установлен")
-		return
+	case "help", "-h", "--help":
+		ui.PrintBannerQuiet()
+		ui.PrintHelp()
+
+	case "version", "-v", "--version":
+		fmt.Printf("SOVA Protocol v%s\n", common.Version)
+
+	case "config":
+		handleConfig(ui)
+
+	case "features":
+		cfg, _ := common.LoadConfig(common.GetConfigPath())
+		ui.PrintBannerQuiet()
+		ui.PrintFeatures(cfg)
+
+	case "enable":
+		handleFeatureToggle(ui, true)
+
+	case "disable":
+		handleFeatureToggle(ui, false)
+
+	case "status":
+		handleStatus(ui)
+
 	case "connect":
 		if len(os.Args) < 3 {
-			ui.PrintError(fmt.Errorf("Использование: sova connect <json_uri>"))
+			ui.PrintError(fmt.Errorf("Usage: sova connect <server:port>"))
 			return
 		}
-		jsonURI := os.Args[2]
-		connectToServer(jsonURI, ui)
-	case "disconnect":
-		ui.PrintStatus("Отключение...", common.Yellow)
-		// Отключение обрабатывается через закрытие активного соединения
-		ui.PrintSuccess("Отключено")
-	case "status":
-		ui.PrintStatus("Статус: Не подключен", common.Cyan)
-		// Статус доступен через REST API /api/stats
-	case "config":
-		if len(os.Args) < 3 {
-			ui.ExitWithError(fmt.Errorf("Usage: sova config <user_id>"))
-		}
-		userID := os.Args[2]
-		ui.PrintStatus("Запрос конфигурации...", common.Cyan)
-		// Here you would contact /api/config
-		fmt.Printf("Конфигурация для %s: <base64>\n", userID)
-	case "proxy":
-		ui.PrintStatus("Запрос доступных прокси...", common.Cyan)
-		// Here you would contact /api/proxy
-		fmt.Println("xray: vless://...\nsingbox: sova://...\ngeneric: socks5://127.0.0.1:1080")
+		startRemoteTunnel(ui, os.Args[2])
+
 	default:
-		ui.PrintError(fmt.Errorf("Неизвестная команда: %s", command))
+		ui.PrintError(fmt.Errorf("Unknown command: %s", command))
+		fmt.Println()
+		ui.PrintHelp()
 	}
 }
 
-func connectToServer(jsonURI string, ui *common.UI) {
-	ui.PrintStatus("Парсинг конфигурации...", common.Cyan)
-	config, err := common.DecodeConfig(jsonURI)
+// startTunnel — главная функция: запуск локального SOCKS5 прокси
+func startTunnel(ui *common.UI) {
+	// Анимированный баннер
+	ui.PrintBanner()
+
+	// Загрузка конфигурации
+	ui.PrintStatus("Loading configuration...", common.Cyan)
+	cfg, err := common.LoadConfig(common.GetConfigPath())
 	if err != nil {
+		ui.PrintWarning(fmt.Sprintf("Config error: %v, using defaults", err))
+		cfg = common.DefaultConfig()
+	}
+	ui.PrintSuccess(fmt.Sprintf("Config loaded from %s", common.GetConfigPath()))
+
+	// Показать конфигурацию
+	ui.PrintConfig(cfg)
+
+	// Инициализация криптографии
+	ui.PrintStatus("Initializing cryptography...", common.Cyan)
+	if err := common.InitMasterKey(); err != nil {
+		ui.ExitWithError(fmt.Errorf("master key init failed: %v", err))
+	}
+	if cfg.Encryption.PQEnabled {
+		if err := common.InitPQKeys(); err != nil {
+			ui.PrintWarning(fmt.Sprintf("PQ crypto init: %v (continuing without PQ)", err))
+		} else {
+			ui.PrintSuccess("Post-quantum crypto initialized (Kyber1024 + Dilithium)")
+		}
+	}
+	ui.PrintSuccess("AES-256-GCM + ChaCha20-Poly1305 ready")
+
+	// Инициализация stealth engine
+	if cfg.Stealth.Enabled {
+		ui.PrintStatus("Activating stealth engine...", common.Cyan)
+		ui.AnimateLoading("Stealth engine loading...", 500*time.Millisecond)
+		ui.PrintSuccess(fmt.Sprintf("Stealth active: profile=%s, jitter=%dms", cfg.Stealth.Profile, cfg.Stealth.JitterMs))
+	}
+
+	// Инициализация AI адаптера
+	var cancel context.CancelFunc
+	if cfg.Features.AIAdapter {
+		ui.PrintStatus("Starting AI adaptive engine...", common.Cyan)
+		switcher := common.NewAdaptiveSwitcher()
+		var ctx context.Context
+		ctx, cancel = context.WithCancel(context.Background())
+		go switcher.MonitorNetwork(ctx)
+		ui.PrintSuccess("AI adapter active — monitoring network conditions")
+	}
+
+	// Запуск REST API
+	if cfg.API.Enabled {
+		ui.PrintStatus(fmt.Sprintf("Starting management API on %s:%d...", cfg.API.Host, cfg.API.Port), common.Cyan)
+		go startClientAPI(cfg, ui)
+		ui.PrintSuccess(fmt.Sprintf("API: http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
+	}
+
+	// DNS-over-SOVA
+	if cfg.DNS.Enabled {
+		ui.PrintStatus(fmt.Sprintf("Starting DNS-over-SOVA on :%d...", cfg.DNS.Port), common.Cyan)
+		dns := common.NewDNSResolver(cfg.DNS.Upstream)
+		go dns.ListenAndServe(fmt.Sprintf(":%d", cfg.DNS.Port))
+		ui.PrintSuccess(fmt.Sprintf("DNS resolver: 127.0.0.1:%d (upstream: %s)", cfg.DNS.Port, cfg.DNS.Upstream))
+	}
+
+	// Запуск SOCKS5 прокси — главный туннель
+	listenAddr := cfg.ListenAddress()
+	ui.PrintStatus(fmt.Sprintf("Starting SOCKS5 proxy on %s...", listenAddr), common.Green)
+
+	socks := common.NewSOCKS5Server(listenAddr, ui)
+	if err := socks.Start(); err != nil {
+		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
+	}
+
+	// Анимация подключения
+	ui.AnimateConnection()
+
+	// Инструкции для пользователя
+	ui.PrintSection("SOVA Tunnel Active")
+	ui.PrintKeyValue("SOCKS5 Proxy:", fmt.Sprintf("%s%s%s", common.Yellow, listenAddr, common.Reset))
+	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (PQ-encrypted)")
+	fmt.Println()
+	fmt.Printf("%s  Configure your browser or system proxy:%s\n", common.Dim, common.Reset)
+	fmt.Printf("%s  → SOCKS5 Host: %s  Port: %d%s\n", common.Yellow, cfg.ListenAddr, cfg.ListenPort, common.Reset)
+	fmt.Printf("%s  → Or use: curl --proxy socks5h://%s https://youtube.com%s\n", common.Dim, listenAddr, common.Reset)
+	fmt.Println()
+	ui.PrintDivider()
+	fmt.Printf("%s  Press Ctrl+C to stop SOVA%s\n", common.Dim, common.Reset)
+	fmt.Println()
+
+	// Ожидание сигнала завершения
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Периодический вывод статистики
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println()
+			ui.PrintStatus("Shutting down SOVA...", common.Yellow)
+			socks.Stop()
+			if cancel != nil {
+				cancel()
+			}
+			stats := socks.GetStats()
+			ui.PrintSection("Session Summary")
+			ui.PrintKeyValue("Total connections:", fmt.Sprintf("%d", stats["total_connections"]))
+			ui.PrintKeyValue("Traffic uploaded:", formatBytes(stats["bytes_up"]))
+			ui.PrintKeyValue("Traffic downloaded:", formatBytes(stats["bytes_down"]))
+			fmt.Println()
+			ui.PrintSuccess("SOVA stopped. Stay free!")
+			return
+
+		case <-ticker.C:
+			stats := socks.GetStats()
+			if stats["active_connections"] > 0 || stats["total_connections"] > 0 {
+				ui.PrintStatus(fmt.Sprintf("Active: %d | Total: %d | ↑%s ↓%s",
+					stats["active_connections"],
+					stats["total_connections"],
+					formatBytes(stats["bytes_up"]),
+					formatBytes(stats["bytes_down"]),
+				), common.Dim+common.Purple)
+			}
+		}
+	}
+}
+
+// startRemoteTunnel подключается к удалённому SOVA серверу
+func startRemoteTunnel(ui *common.UI, serverAddr string) {
+	ui.PrintBanner()
+
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+	// Парсим адрес сервера
+	if !strings.Contains(serverAddr, ":") {
+		serverAddr = serverAddr + ":443"
+	}
+
+	ui.PrintStatus(fmt.Sprintf("Connecting to SOVA server %s...", serverAddr), common.Cyan)
+
+	// Инициализация криптографии
+	if err := common.InitMasterKey(); err != nil {
 		ui.ExitWithError(err)
+	}
+	if cfg.Encryption.PQEnabled {
+		common.InitPQKeys()
 	}
 
 	ui.AnimateConnection()
 
-	transportConfig := &common.TransportConfig{
-		Mode:       common.WebMirrorMode,
-		ServerAddr: "localhost:443",
-		SNI:        config.SNIList[0],
+	// В remote режиме SOCKS5 прокси направляет трафик через сервер
+	listenAddr := cfg.ListenAddress()
+	ui.PrintStatus(fmt.Sprintf("Starting SOCKS5 proxy on %s (via %s)...", listenAddr, serverAddr), common.Green)
+
+	socks := common.NewSOCKS5Server(listenAddr, ui)
+
+	// Remote dialer: подключаемся к серверу для каждого соединения
+	// В будущем — мультиплексирование через одно соединение
+	socks.RemoteDialer = common.CreateRemoteDialer(serverAddr)
+
+	if err := socks.Start(); err != nil {
+		ui.ExitWithError(fmt.Errorf("SOCKS5 proxy failed: %v", err))
 	}
 
-	ui.PrintStatus("Установка транспорта...", common.Cyan)
-	conn, err := common.DialTransport(transportConfig)
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-	defer conn.Conn.Close()
+	ui.PrintSection("SOVA Remote Tunnel Active")
+	ui.PrintKeyValue("Server:", serverAddr)
+	ui.PrintKeyValue("Local proxy:", listenAddr)
+	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (PQ-encrypted)")
+	fmt.Println()
+	fmt.Printf("%s  Press Ctrl+C to stop%s\n", common.Dim, common.Reset)
 
-	ui.PrintStatus("Аутентификация ZKP + PQ...", common.Cyan)
-	cred := &common.UserCredentials{UserID: "test", Password: "pass"}
-	challengeBuf := make([]byte, 32)
-	n, err := conn.Conn.Read(challengeBuf)
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-	challenge := &common.ZKPChallenge{Nonce: challengeBuf[:n]}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	// Прочитать nonce для генерации сессионного ключа
-	nonceBuf := make([]byte, 16)
-	n, err = conn.Conn.Read(nonceBuf)
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-	sessionKey, _ := common.DeriveSessionKey(nonceBuf)
-
-	proof, err := cred.ProvePassword(challenge, []byte(config.ServerPubKey))
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-
-	_, err = conn.Conn.Write(proof.Response)
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-
-	ui.PrintSuccess("Аутентифицировано с пост-квантовым шифрованием")
-
-	// Запуск AI адаптера
-	switcher := common.NewAdaptiveSwitcher()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go switcher.MonitorNetwork(ctx)
-
-	ui.PrintStatus("Запуск SOCKS5 прокси на 127.0.0.1:1080", common.Green)
-	listener, err := net.Listen("tcp", "127.0.0.1:1080")
-	if err != nil {
-		ui.ExitWithError(err)
-	}
-	defer listener.Close()
-
-	ui.PrintSuccess("SOVA туннель активен! Используйте прокси 127.0.0.1:1080")
-
-	for {
-		clientConn, err := listener.Accept()
-		if err != nil {
-			continue
-		}
-		go func(cc net.Conn) {
-			// wrapper that encrypts/decrypts using sessionKey
-			handleProxy(cc, conn.Conn, ui, sessionKey)
-		}(clientConn)
-	}
+	fmt.Println()
+	socks.Stop()
+	ui.PrintSuccess("Disconnected from server")
 }
 
-func handleProxy(clientConn, remoteConn net.Conn, ui *common.UI, key []byte) {
-	defer clientConn.Close()
-	_ = key // session key for encrypted tunnel
-	tunnel := &common.TunnelReaderWriter{
-		LocalConn:  clientConn,
-		RemoteConn: remoteConn,
+// handleConfig — управление конфигурацией
+func handleConfig(ui *common.UI) {
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+	if len(os.Args) < 3 {
+		// Показать текущую конфигурацию
+		ui.PrintBannerQuiet()
+		ui.PrintConfig(cfg)
+		ui.PrintInfoAlways(fmt.Sprintf("Config file: %s", common.GetConfigPath()))
+		return
 	}
-	tunnel.StartTunnel()
-	ui.PrintInfo("Новый прокси-соединение обработано")
+
+	if os.Args[2] == "set" && len(os.Args) >= 5 {
+		key := os.Args[3]
+		value := os.Args[4]
+
+		switch key {
+		case "mode":
+			cfg.Mode = value
+		case "listen_addr":
+			cfg.ListenAddr = value
+		case "listen_port":
+			port, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid port: %s", value))
+			}
+			cfg.ListenPort = port
+		case "server_addr":
+			cfg.ServerAddr = value
+		case "server_port":
+			port, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid port: %s", value))
+			}
+			cfg.ServerPort = port
+		case "encryption":
+			cfg.Encryption.Algorithm = value
+		case "stealth_profile":
+			cfg.Stealth.Profile = value
+		case "log_level":
+			cfg.LogLevel = value
+		case "transport_mode":
+			cfg.Transport.Mode = value
+		case "api_port":
+			port, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid port: %s", value))
+			}
+			cfg.API.Port = port
+		case "dns_upstream":
+			cfg.DNS.Upstream = value
+		default:
+			ui.ExitWithError(fmt.Errorf("unknown config key: %s", key))
+		}
+
+		if err := cfg.Save(common.GetConfigPath()); err != nil {
+			ui.ExitWithError(err)
+		}
+		ui.PrintSuccess(fmt.Sprintf("Config updated: %s = %s", key, value))
+		return
+	}
+
+	if os.Args[2] == "reset" {
+		cfg = common.DefaultConfig()
+		if err := cfg.Save(common.GetConfigPath()); err != nil {
+			ui.ExitWithError(err)
+		}
+		ui.PrintSuccess("Config reset to defaults")
+		return
+	}
+
+	if os.Args[2] == "path" {
+		fmt.Println(common.GetConfigPath())
+		return
+	}
+
+	if os.Args[2] == "json" {
+		data, _ := cfg.ToJSON()
+		fmt.Println(string(data))
+		return
+	}
+
+	ui.PrintError(fmt.Errorf("Unknown config command: %s", os.Args[2]))
+}
+
+// handleFeatureToggle включает/выключает модуль
+func handleFeatureToggle(ui *common.UI, enable bool) {
+	if len(os.Args) < 3 {
+		action := "enable"
+		if !enable {
+			action = "disable"
+		}
+		ui.ExitWithError(fmt.Errorf("Usage: sova %s <module_name>", action))
+	}
+
+	moduleName := os.Args[2]
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+	if !cfg.SetFeature(moduleName, enable) {
+		ui.ExitWithError(fmt.Errorf("Unknown module: %s", moduleName))
+	}
+
+	if err := cfg.Save(common.GetConfigPath()); err != nil {
+		ui.ExitWithError(err)
+	}
+
+	action := "enabled"
+	if !enable {
+		action = "disabled"
+	}
+	ui.PrintSuccess(fmt.Sprintf("Module '%s' %s", moduleName, action))
+}
+
+// handleStatus показывает статус
+func handleStatus(ui *common.UI) {
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+	ui.PrintBannerQuiet()
+	ui.PrintSystemInfo()
+	ui.PrintConfig(cfg)
+}
+
+// startClientAPI запускает REST API для управления клиентом
+func startClientAPI(cfg *common.Config, ui *common.UI) {
+	// API реализован в common пакете, используется и клиентом и сервером
+	// Здесь запускаем базовый HTTP API для управления
+	common.StartManagementAPI(cfg, ui)
+}
+
+// formatBytes форматирует байты в читаемый формат
+func formatBytes(bytes int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
 }

@@ -11,12 +11,12 @@ import (
 
 // DoSOVAResolver DNS-over-SOVA резолвер для обхода DNS-блокировок
 type DoSOVAResolver struct {
-	mu             sync.RWMutex
-	cache          map[string]*DNSCacheEntry
-	upstreamDNS    []string
-	cacheTTL       time.Duration
-	fallbackDNS    []string
-	encryptedMode  bool
+	mu            sync.RWMutex
+	cache         map[string]*DNSCacheEntry
+	upstreamDNS   []string
+	cacheTTL      time.Duration
+	fallbackDNS   []string
+	encryptedMode bool
 }
 
 // DNSCacheEntry запись DNS кэша
@@ -31,9 +31,9 @@ func NewDoSOVAResolver() *DoSOVAResolver {
 	return &DoSOVAResolver{
 		cache: make(map[string]*DNSCacheEntry),
 		upstreamDNS: []string{
-			"1.1.1.1:53",       // Cloudflare
-			"8.8.8.8:53",       // Google
-			"9.9.9.9:53",       // Quad9
+			"1.1.1.1:53",        // Cloudflare
+			"8.8.8.8:53",        // Google
+			"9.9.9.9:53",        // Quad9
 			"208.67.222.222:53", // OpenDNS
 		},
 		fallbackDNS: []string{
@@ -183,4 +183,67 @@ func (r *DoSOVAResolver) CreateSOVADialer(timeout time.Duration) *net.Dialer {
 			},
 		},
 	}
+}
+
+// DNSServer обёртка для UDP DNS сервера
+type DNSServer struct {
+	resolver *DoSOVAResolver
+	upstream string
+}
+
+// NewDNSResolver создаёт DNS сервер с указанным upstream
+func NewDNSResolver(upstream string) *DNSServer {
+	resolver := NewDoSOVAResolver()
+	if upstream != "" {
+		resolver.upstreamDNS = []string{upstream}
+	}
+	return &DNSServer{
+		resolver: resolver,
+		upstream: upstream,
+	}
+}
+
+// ListenAndServe запускает DNS сервер на указанном адресе
+func (ds *DNSServer) ListenAndServe(addr string) error {
+	conn, err := net.ListenPacket("udp", addr)
+	if err != nil {
+		return fmt.Errorf("DNS listen failed on %s: %v", addr, err)
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 512)
+	for {
+		n, clientAddr, err := conn.ReadFrom(buf)
+		if err != nil {
+			continue
+		}
+		go ds.handleDNSPacket(conn, clientAddr, buf[:n])
+	}
+}
+
+func (ds *DNSServer) handleDNSPacket(conn net.PacketConn, addr net.Addr, query []byte) {
+	// Проксируем запрос к upstream DNS
+	upstream := ds.upstream
+	if upstream == "" {
+		upstream = "8.8.8.8:53"
+	}
+
+	upConn, err := net.DialTimeout("udp", upstream, 3*time.Second)
+	if err != nil {
+		return
+	}
+	defer upConn.Close()
+
+	upConn.SetDeadline(time.Now().Add(5 * time.Second))
+	if _, err := upConn.Write(query); err != nil {
+		return
+	}
+
+	resp := make([]byte, 512)
+	n, err := upConn.Read(resp)
+	if err != nil {
+		return
+	}
+
+	conn.WriteTo(resp[:n], addr)
 }

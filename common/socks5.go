@@ -14,28 +14,28 @@ import (
 
 // SOCKS5Server представляет SOCKS5 прокси-сервер
 type SOCKS5Server struct {
-	ListenAddr    string
-	RemoteDialer  func(network, addr string) (net.Conn, error)
-	UI            *UI
-	listener      net.Listener
-	activeConns   int64
-	totalConns    int64
-	totalBytesUp  int64
+	ListenAddr     string
+	RemoteDialer   func(network, addr string) (net.Conn, error)
+	UI             *UI
+	listener       net.Listener
+	activeConns    int64
+	totalConns     int64
+	totalBytesUp   int64
 	totalBytesDown int64
-	mu            sync.RWMutex
-	running       bool
+	mu             sync.RWMutex
+	running        bool
 }
 
 // SOCKS5 constants
 const (
-	socks5Version = 0x05
-	socks5AuthNone = 0x00
+	socks5Version    = 0x05
+	socks5AuthNone   = 0x00
 	socks5CmdConnect = 0x01
-	socks5CmdBind = 0x02
-	socks5CmdUDP = 0x03
-	socks5AtypIPv4 = 0x01
+	socks5CmdBind    = 0x02
+	socks5CmdUDP     = 0x03
+	socks5AtypIPv4   = 0x01
 	socks5AtypDomain = 0x03
-	socks5AtypIPv6 = 0x04
+	socks5AtypIPv6   = 0x04
 )
 
 // NewSOCKS5Server создает SOCKS5 сервер
@@ -263,4 +263,47 @@ func (s *SOCKS5Server) tunnel(local, remote net.Conn) {
 	}()
 
 	<-done
+}
+
+// CreateRemoteDialer создаёт dialer, который маршрутизирует трафик через удалённый SOVA сервер
+func CreateRemoteDialer(serverAddr string) func(network, addr string) (net.Conn, error) {
+	return func(network, addr string) (net.Conn, error) {
+		// Подключаемся к удалённому SOVA серверу
+		serverConn, err := net.DialTimeout("tcp", serverAddr, 15*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to SOVA server %s: %v", serverAddr, err)
+		}
+
+		// Отправляем целевой адрес серверу в формате: длина(1 байт) + адрес
+		addrBytes := []byte(addr)
+		if len(addrBytes) > 255 {
+			serverConn.Close()
+			return nil, fmt.Errorf("target address too long")
+		}
+
+		header := make([]byte, 1+len(addrBytes))
+		header[0] = byte(len(addrBytes))
+		copy(header[1:], addrBytes)
+
+		if _, err := serverConn.Write(header); err != nil {
+			serverConn.Close()
+			return nil, fmt.Errorf("failed to send target address: %v", err)
+		}
+
+		// Читаем ответ (1 байт: 0 = успех, 1 = ошибка)
+		resp := make([]byte, 1)
+		serverConn.SetReadDeadline(time.Now().Add(10 * time.Second))
+		if _, err := serverConn.Read(resp); err != nil {
+			serverConn.Close()
+			return nil, fmt.Errorf("no response from server: %v", err)
+		}
+		serverConn.SetReadDeadline(time.Time{})
+
+		if resp[0] != 0 {
+			serverConn.Close()
+			return nil, fmt.Errorf("server refused connection to %s", addr)
+		}
+
+		return serverConn, nil
+	}
 }
