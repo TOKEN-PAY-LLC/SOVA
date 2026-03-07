@@ -16,43 +16,10 @@ function Write-Warn   { param($msg) Write-Host "  [!!] $msg" -ForegroundColor Ye
 function Write-Err    { param($msg) Write-Host "  [XX] $msg" -ForegroundColor Red }
 
 function Show-AnimatedOwl {
-    $frame1 = @"
-         ___________
-        /   /   \   \
-       |   | O   O |  |
-       |   |   V   |  |
-        \   \_____/   /
-      // \___________/ \\
-     //   |||||||||||   \\
-    ||    |||||||||||    ||
-           ||   ||
-          _||___||_
-"@
-    $frame2 = @"
-         ___________
-        /   /   \   \
-       |   | *   * |  |
-       |   |   V   |  |
-        \   \_____/   /
-      // \___________/ \\
-     //   |||||||||||   \\
-    ||    |||||||||||    ||
-           ||   ||
-          _||___||_
-"@
-    $frame3 = @"
-         ___________
-        /   /   \   \
-       |   | O   O |  |
-       |   |   V   |  |
-        \   \_____/   /
-     /  \___________/  \
-    /    |||||||||||    \
-   /     |||||||||||     \
-           ||   ||
-          _||___||_
-"@
-    $frames = @($frame1, $frame2, $frame1, $frame3, $frame1)
+    $owlOpen  = "         ___________`n        /   /   \   \`n       |   | O   O |  |`n       |   |   V   |  |`n        \   \_____/   /`n      // \___________/ \\`n     //   |||||||||||   \\`n    ||    |||||||||||    ||`n           ||   ||`n          _||___||_"
+    $owlBlink = "         ___________`n        /   /   \   \`n       |   | *   * |  |`n       |   |   V   |  |`n        \   \_____/   /`n      // \___________/ \\`n     //   |||||||||||   \\`n    ||    |||||||||||    ||`n           ||   ||`n          _||___||_"
+    $owlWings = "         ___________`n        /   /   \   \`n       |   | O   O |  |`n       |   |   V   |  |`n        \   \_____/   /`n     /  \___________/  \`n    /    |||||||||||    \`n   /     |||||||||||     \`n           ||   ||`n          _||___||_"
+    $frames = @($owlOpen, $owlBlink, $owlOpen, $owlWings, $owlOpen)
     foreach ($frame in $frames) {
         Clear-Host
         Write-Host $frame -ForegroundColor Magenta
@@ -176,7 +143,7 @@ function Build-FromSource {
             Write-Err "Cannot find SOVA source code and git is not available."
             Write-Err "Either clone the repo manually or install git:"
             Write-Err "  git clone $RepoURL.git"
-            Write-Err "  cd SOVA && .\install.ps1"
+            Write-Err "  cd SOVA; .\install.ps1"
             exit 1
         }
     } else {
@@ -212,57 +179,56 @@ function Install-Config {
     }
 
     Write-Info "Generating default configuration..."
-    @"
-{
-  "mode": "local",
-  "listen_addr": "127.0.0.1",
-  "listen_port": 1080,
-  "server_addr": "",
-  "server_port": 443,
-  "encryption": {
-    "algorithm": "aes-256-gcm",
-    "pq_enabled": true,
-    "zkp_enabled": true
-  },
-  "stealth": {
-    "enabled": true,
-    "profile": "chrome",
-    "jitter_ms": 50,
-    "padding_enabled": true,
-    "decoy_enabled": false,
-    "tls_fingerprint": "chrome"
-  },
-  "api": {
-    "enabled": true,
-    "port": 8080,
-    "host": "127.0.0.1",
-    "auth_key": ""
-  },
-  "dns": {
-    "enabled": false,
-    "port": 5353,
-    "upstream": "8.8.8.8:53"
-  },
-  "log_level": "info",
-  "log_file": "",
-  "features": {
-    "compression": true,
-    "connection_pool": true,
-    "smart_routing": true,
-    "mesh_network": false,
-    "offline_first": false,
-    "ai_adapter": true,
-    "dashboard": true,
-    "auto_proxy": false
-  },
-  "transport": {
-    "mode": "auto",
-    "sni_list": ["www.google.com", "cdn.cloudflare.com", "aws.amazon.com"],
-    "cdn_list": ["cdn.cloudflare.com", "fastly.net"],
-    "fallback": true
-  }
-}
-"@ | Set-Content $configFile -Encoding UTF8
+    $json = '{' + "`n"
+    $json += '  "mode": "local",' + "`n"
+    $json += '  "listen_addr": "127.0.0.1",' + "`n"
+    $json += '  "listen_port": 1080,' + "`n"
+    $json += '  "server_addr": "",' + "`n"
+    $json += '  "server_port": 443,' + "`n"
+    $json += '  "encryption": {' + "`n"
+    $json += '    "algorithm": "aes-256-gcm",' + "`n"
+    $json += '    "pq_enabled": true,' + "`n"
+    $json += '    "zkp_enabled": true' + "`n"
+    $json += '  },' + "`n"
+    $json += '  "stealth": {' + "`n"
+    $json += '    "enabled": true,' + "`n"
+    $json += '    "profile": "chrome",' + "`n"
+    $json += '    "jitter_ms": 50,' + "`n"
+    $json += '    "padding_enabled": true,' + "`n"
+    $json += '    "decoy_enabled": false,' + "`n"
+    $json += '    "tls_fingerprint": "chrome"' + "`n"
+    $json += '  },' + "`n"
+    $json += '  "api": {' + "`n"
+    $json += '    "enabled": true,' + "`n"
+    $json += '    "port": 8080,' + "`n"
+    $json += '    "host": "127.0.0.1",' + "`n"
+    $json += '    "auth_key": ""' + "`n"
+    $json += '  },' + "`n"
+    $json += '  "dns": {' + "`n"
+    $json += '    "enabled": false,' + "`n"
+    $json += '    "port": 5353,' + "`n"
+    $json += '    "upstream": "8.8.8.8:53"' + "`n"
+    $json += '  },' + "`n"
+    $json += '  "log_level": "info",' + "`n"
+    $json += '  "log_file": "",' + "`n"
+    $json += '  "features": {' + "`n"
+    $json += '    "compression": true,' + "`n"
+    $json += '    "connection_pool": true,' + "`n"
+    $json += '    "smart_routing": true,' + "`n"
+    $json += '    "mesh_network": false,' + "`n"
+    $json += '    "offline_first": false,' + "`n"
+    $json += '    "ai_adapter": true,' + "`n"
+    $json += '    "dashboard": true,' + "`n"
+    $json += '    "auto_proxy": false' + "`n"
+    $json += '  },' + "`n"
+    $json += '  "transport": {' + "`n"
+    $json += '    "mode": "auto",' + "`n"
+    $json += '    "sni_list": ["www.google.com", "cdn.cloudflare.com", "aws.amazon.com"],' + "`n"
+    $json += '    "cdn_list": ["cdn.cloudflare.com", "fastly.net"],' + "`n"
+    $json += '    "fallback": true' + "`n"
+    $json += '  }' + "`n"
+    $json += '}'
+    $json | Set-Content $configFile -Encoding UTF8
     Write-Ok "Configuration at $configFile"
 }
 
