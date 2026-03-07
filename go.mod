@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/quic-go/quic-go v0.40.1
 	golang.org/x/crypto v0.20.0
+	golang.org/x/term v0.17.0
 )
 
 require (

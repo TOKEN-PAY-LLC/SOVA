@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -16,14 +17,21 @@ import (
 func main() {
 	ui := common.NewUI(true)
 
-	// Без аргументов или "start" — запуск туннеля
-	if len(os.Args) < 2 || os.Args[1] == "start" {
-		startTunnel(ui)
+	// If command-line args provided, run in CLI mode
+	if len(os.Args) >= 2 {
+		runCLI(ui, os.Args[1])
 		return
 	}
 
-	command := os.Args[1]
+	// No args: interactive menu mode
+	runInteractiveMenu(ui)
+}
+
+func runCLI(ui *common.UI, command string) {
 	switch command {
+	case "start":
+		startTunnel(ui)
+
 	case "help", "-h", "--help":
 		ui.PrintBannerQuiet()
 		ui.PrintHelp()
@@ -55,11 +63,252 @@ func main() {
 		}
 		startRemoteTunnel(ui, os.Args[2])
 
+	case "menu":
+		runInteractiveMenu(ui)
+
 	default:
 		ui.PrintError(fmt.Errorf("Unknown command: %s", command))
 		fmt.Println()
 		ui.PrintHelp()
 	}
+}
+
+// runInteractiveMenu shows language selection then the main interactive menu
+func runInteractiveMenu(ui *common.UI) {
+	ui.PrintBanner()
+
+	common.CurrentLang = common.SelectLanguage()
+
+	for {
+		items := []common.MenuItem{
+			{LabelEN: "Start Tunnel", LabelRU: "Zapustit' tunnel'", DescEN: "SOCKS5 proxy 127.0.0.1:1080", DescRU: "SOCKS5 proksi 127.0.0.1:1080"},
+			{LabelEN: "Connect to Server", LabelRU: "Podklyuchit'sya k serveru", DescEN: "Via remote SOVA server", DescRU: "Cherez udalyonnyj server"},
+			{LabelEN: "Configuration", LabelRU: "Konfiguratsiya", DescEN: "View & edit settings", DescRU: "Nastrojki"},
+			{LabelEN: "Modules", LabelRU: "Moduli", DescEN: "Toggle features on/off", DescRU: "Vkl/vykl moduli"},
+			{LabelEN: "Status", LabelRU: "Status", DescEN: "System info", DescRU: "Informatsiya o sisteme"},
+			{LabelEN: "Help", LabelRU: "Spravka", DescEN: "Commands & API", DescRU: "Komandy i API"},
+			{LabelEN: "Exit", LabelRU: "Vykhod", DescEN: "", DescRU: ""},
+		}
+
+		choice := common.RunMenu("SOVA Protocol v"+common.Version, "Protokol SOVA v"+common.Version, items)
+		switch choice {
+		case 0:
+			startTunnel(ui)
+			return
+		case 1:
+			menuConnect(ui)
+		case 2:
+			menuConfig(ui)
+		case 3:
+			menuModules(ui)
+		case 4:
+			handleStatus(ui)
+			waitEnter()
+		case 5:
+			ui.PrintHelp()
+			waitEnter()
+		case -1, 6:
+			fmt.Println()
+			ui.PrintSuccess(common.T("Goodbye! Stay free!", "Do svidaniya!"))
+			return
+		}
+	}
+}
+
+func menuConnect(ui *common.UI) {
+	fmt.Printf("\n  %s%s%s ", common.Purple7, common.T("Server address (host:port): ", "Adres servera (host:port): "), common.Reset)
+	reader := bufio.NewReader(os.Stdin)
+	addr, _ := reader.ReadString('\n')
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return
+	}
+	startRemoteTunnel(ui, addr)
+}
+
+func menuConfig(ui *common.UI) {
+	for {
+		items := []common.MenuItem{
+			{LabelEN: "Show Configuration", LabelRU: "Pokazat' konfiguraciyu", DescEN: "Current settings", DescRU: "Tekushchie nastrojki"},
+			{LabelEN: "Edit Setting", LabelRU: "Izmenit' parametr", DescEN: "key = value", DescRU: "klyuch = znachenie"},
+			{LabelEN: "Reset to Defaults", LabelRU: "Sbrosit' nastrojki", DescEN: "Restore defaults", DescRU: "Vosstanovit' po umolchaniyu"},
+			{LabelEN: "Export JSON", LabelRU: "Eksport JSON", DescEN: "Config as JSON", DescRU: "Konfig v JSON"},
+			{LabelEN: "Config Path", LabelRU: "Put' k konfigu", DescEN: "File location", DescRU: "Raspolozhenie fajla"},
+			{LabelEN: "Back", LabelRU: "Nazad", DescEN: "", DescRU: ""},
+		}
+
+		choice := common.RunMenu("Configuration", "Konfiguratsiya", items)
+		cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+		switch choice {
+		case 0:
+			ui.PrintConfig(cfg)
+			waitEnter()
+		case 1:
+			menuEditSetting(ui)
+		case 2:
+			def := common.DefaultConfig()
+			if err := def.Save(common.GetConfigPath()); err != nil {
+				ui.PrintError(err)
+			} else {
+				ui.PrintSuccess(common.T("Config reset to defaults", "Konfiguratsiya sbroshena"))
+			}
+			waitEnter()
+		case 3:
+			data, _ := cfg.ToJSON()
+			fmt.Println(string(data))
+			waitEnter()
+		case 4:
+			fmt.Printf("  %s\n", common.GetConfigPath())
+			waitEnter()
+		case -1, 5:
+			return
+		}
+	}
+}
+
+func menuEditSetting(ui *common.UI) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("\n  %s%s%s", common.Purple7, common.T("Key: ", "Klyuch: "), common.Reset)
+	key, _ := reader.ReadString('\n')
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
+
+	fmt.Printf("  %s%s%s", common.Purple7, common.T("Value: ", "Znachenie: "), common.Reset)
+	value, _ := reader.ReadString('\n')
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+
+	cfg, _ := common.LoadConfig(common.GetConfigPath())
+	applied := applyConfigSetting(cfg, key, value)
+	if !applied {
+		ui.PrintError(fmt.Errorf(common.T("Unknown key: %s", "Neizvestnyj klyuch: %s"), key))
+		return
+	}
+	if err := cfg.Save(common.GetConfigPath()); err != nil {
+		ui.PrintError(err)
+		return
+	}
+	ui.PrintSuccess(fmt.Sprintf("%s = %s", key, value))
+}
+
+func applyConfigSetting(cfg *common.Config, key, value string) bool {
+	switch key {
+	case "mode":
+		cfg.Mode = value
+	case "listen_addr":
+		cfg.ListenAddr = value
+	case "listen_port":
+		port, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.ListenPort = port
+	case "server_addr":
+		cfg.ServerAddr = value
+	case "server_port":
+		port, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.ServerPort = port
+	case "encryption":
+		cfg.Encryption.Algorithm = value
+	case "stealth_profile":
+		cfg.Stealth.Profile = value
+	case "tls_fingerprint":
+		cfg.Stealth.TLSFingerprint = value
+	case "log_level":
+		cfg.LogLevel = value
+	case "transport_mode":
+		cfg.Transport.Mode = value
+	case "api_port":
+		port, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.API.Port = port
+	case "dns_upstream":
+		cfg.DNS.Upstream = value
+	case "dns_port":
+		port, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.DNS.Port = port
+	case "jitter_ms":
+		jitter, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.Stealth.JitterMs = jitter
+	default:
+		return false
+	}
+	return true
+}
+
+func menuModules(ui *common.UI) {
+	for {
+		cfg, _ := common.LoadConfig(common.GetConfigPath())
+
+		type feat struct {
+			name string
+			on   bool
+		}
+		features := []feat{
+			{"pq_crypto", cfg.Encryption.PQEnabled},
+			{"zkp", cfg.Encryption.ZKPEnabled},
+			{"stealth", cfg.Stealth.Enabled},
+			{"padding", cfg.Stealth.PaddingEnabled},
+			{"decoy", cfg.Stealth.DecoyEnabled},
+			{"ai_adapter", cfg.Features.AIAdapter},
+			{"compression", cfg.Features.Compression},
+			{"connection_pool", cfg.Features.ConnectionPool},
+			{"smart_routing", cfg.Features.SmartRouting},
+			{"mesh_network", cfg.Features.MeshNetwork},
+			{"offline_first", cfg.Features.OfflineFirst},
+			{"dns", cfg.DNS.Enabled},
+			{"api", cfg.API.Enabled},
+			{"dashboard", cfg.Features.Dashboard},
+			{"auto_proxy", cfg.Features.AutoProxy},
+		}
+
+		items := make([]common.MenuItem, 0, len(features)+1)
+		for _, f := range features {
+			status := "[ON] "
+			if !f.on {
+				status = "[OFF]"
+			}
+			items = append(items, common.MenuItem{
+				LabelEN: status + " " + f.name,
+				LabelRU: status + " " + f.name,
+				DescEN:  "Enter to toggle",
+				DescRU:  "Enter dlya pereklyucheniya",
+			})
+		}
+		items = append(items, common.MenuItem{LabelEN: "Back", LabelRU: "Nazad"})
+
+		choice := common.RunMenu("Modules", "Moduli", items)
+		if choice == -1 || choice >= len(features) {
+			return
+		}
+		if choice >= 0 && choice < len(features) {
+			f := features[choice]
+			cfg.SetFeature(f.name, !f.on)
+			cfg.Save(common.GetConfigPath())
+		}
+	}
+}
+
+func waitEnter() {
+	fmt.Printf("\n  %s%s%s", common.Dim, common.T("Press Enter to continue...", "Nazhmite Enter..."), common.Reset)
+	bufio.NewReader(os.Stdin).ReadString('\n')
 }
 
 // startTunnel — главная функция: запуск локального SOCKS5 прокси

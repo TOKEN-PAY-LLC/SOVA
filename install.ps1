@@ -380,8 +380,12 @@ Write-Info 'API:        http://127.0.0.1:8080/api/'
 Write-Info ('Config:     ' + $ConfigDir + '\config.json')
 Write-Info 'Proxy:      SOCKS5 127.0.0.1:1080'
 Write-Host ''
-Write-Info 'Quick start:'
-Write-Host '  sova                               # Start tunnel' -ForegroundColor White
+Write-Host '  !!! RESTART YOUR TERMINAL TO USE sova COMMANDS !!!' -ForegroundColor Red -BackgroundColor Black
+Write-Host '  !!! PEREZAPUSTITE TERMINAL DLYA ISPOLZOVANIYA sova !!!' -ForegroundColor Red -BackgroundColor Black
+Write-Host ''
+Write-Info 'Quick start (after terminal restart):'
+Write-Host '  sova                               # Interactive menu' -ForegroundColor White
+Write-Host '  sova start                         # Start tunnel' -ForegroundColor White
 Write-Host '  sova connect server.example.com    # Remote server' -ForegroundColor White
 Write-Host '  sova help                          # All commands' -ForegroundColor White
 Write-Host ''
