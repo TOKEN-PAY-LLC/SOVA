@@ -1,6 +1,6 @@
 # Release Notes
 
-## v2.1.0 — March 2026
+## v1.0.1 — March 2026 (Full Autonomy Release)
 
 ### Mobile ISP Bypass — WebSocket Relay
 
@@ -36,13 +36,35 @@ making it the most reliable choice for mobile ISP bypass.
 
 ---
 
-## v1.0.0 — March 2026
+## v1.0.1 Features — Full Autonomy
+
+### SOVA Proxy (собственный прокси)
+- HTTP CONNECT основной протокол (не SOCKS5)
+- Legacy SOCKS5 auto-detect для совместимости
+- Встроенный в клиент, запускается на 127.0.0.1:1080
+
+### SOVA Wire Protocol
+- AES-256-GCM encrypted frames
+- Handshake: Magic + Version + Salt → SessionKey derivation
+- Frame types: CONNECT, DATA, CLOSE, KEEPALIVE, ACK
+- Random padding (4-64 bytes) в каждом фрейме
+
+### DPI Evasion Engine
+- TLS ClientHello фрагментация (2-byte TCP segments)
+- SNI spoofing (google.com, cloudflare.com, youtube.com)
+- Timing jitter между фрагментами
+- Self-signed TLS certificate generation
+
+### System Integration
+- HTTP proxy format для Windows (нативная поддержка)
+- Auto-proxy configuration
+- TLS 1.3 с поддельным SNI
 
 ```
          ▄▄▄████▄▄▄
        ▄██▀▀    ▀▀██▄
-      ███  ◉    ◉  ███     SOVA Protocol v1.0.0
-      ███    ▾▾    ███     Production Release
+      ███  ◉    ◉  ███     SOVA Protocol v1.0.1
+      ███    ▾▾    ███     Full Autonomy Release
        ▀██▄▄▄▄▄▄██▀
       ╱╱ ▀████████▀ ╲╲
      ╱╱   ║██████║   ╲╲
@@ -61,7 +83,7 @@ making it the most reliable choice for mobile ISP bypass.
 
 ---
 
-### New in v1.0.0
+### New in v1.0.1
 
 #### Terminal UI
 - **Animated flying owl** — 3-frame flight animation (wings up / glide / wings down) across terminal width

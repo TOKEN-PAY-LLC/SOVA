@@ -51,7 +51,7 @@ body:
       value: |
         - OS: [e.g. Windows 11, Ubuntu 22.04, macOS 13]
         - Architecture: [e.g. amd64, arm64]
-        - SOVA Version: [e.g. v1.0.0]
+        - SOVA Version: [e.g. v1.0.1]
         - Go Version: [e.g. 1.21]
       render: markdown
 

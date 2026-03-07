@@ -1,9 +1,9 @@
-# SOVA Protocol v1.0.0 - Windows Installer
+# SOVA Protocol v1.0.1 - Windows Installer
 # Run as Administrator: powershell -ExecutionPolicy Bypass -File install.ps1
 #Requires -RunAsAdministrator
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.0.0'
+$Version = '1.0.1'
 $RepoURL = 'https://github.com/IvanChernykh/SOVA'
 $BaseURL = $RepoURL + '/releases/download/v' + $Version
 $InstallDir = $env:ProgramFiles + '\SOVA'
