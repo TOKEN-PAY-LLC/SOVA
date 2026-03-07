@@ -102,6 +102,15 @@ func main() {
 	defer cancel()
 	go switcher.MonitorNetwork(ctx)
 
+	// Инициализация Offline-First архитектуры с Mesh и Connectivity Detection
+	ui.PrintStatus("Инициализация Mesh-сети...", common.Cyan)
+	offlineArch := common.NewOfflineFirstArchitecture("sova-server-1")
+	if err := offlineArch.Start(ctx); err != nil {
+		ui.PrintError(fmt.Errorf("ошибка инициализации offline-first: %v", err))
+	}
+
+	ui.PrintSuccess("Компоненты активированы: Mesh + Connectivity + OfflineFirst")
+
 	ui.PrintStatus("Запуск сервера на :443", common.Green)
 	listener, err := tls.Listen("tcp", ":443", tlsConfig)
 	if err != nil {

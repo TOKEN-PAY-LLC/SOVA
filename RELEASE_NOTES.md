@@ -1,11 +1,74 @@
 # Release Notes - v1.0.0
 
-## 🚀 SOVA Protocol v1.0.0 - Production Ready
+## 🚀 SOVA Protocol v1.0.0 - Production Ready + AI Mesh + Offline-First
 
-**Release Date:** December 2025
+**Release Date:** December 2025 / March 2026
 
 ### Overview
-SOVA Protocol v1.0.0 is the first production release of an open, DPI-resistant, AI-adaptive protocol for secure data transmission. This release includes full end-to-end encryption, Zero-Knowledge Proof authentication, and post-quantum cryptography support.
+SOVA Protocol v1.0.0 is the first production release of an open, DPI-resistant, **AI-adaptive protocol with mesh networking** for secure data transmission **even when internet is completely disconnected**. This release includes full end-to-end encryption, Zero-Knowledge Proof authentication, post-quantum cryptography support, and **revolutionary offline-first architecture**.
+
+### ✨ Revolutionary Features
+
+#### **🌐 ConnectivityDetector - Automatic Network Channel Discovery**
+- **Internet Detection**: Multi-target DNS checks for online/offline status
+- **Cellular Tower Scanning**: Detects 5G/4G/3G/2G towers with signal strength (dBm)
+- **Wi-Fi Discovery**: Scans and profiles available networks
+- **Mesh Node Discovery**: Multicast beacon detection for peer-to-peer nodes
+- **Intelligent Failover**: Automatic switching between channels
+- **Routing Decision Engine**: Calculates best route based on reliability, latency, bandwidth
+
+#### **📡 MeshNetwork - Peer-to-Peer without Internet**
+When internet is unavailable:
+- **Automatic Mesh Formation**: Creates P2P network with nearby SOVA nodes
+- **Multi-Hop Routing**: Data relayed through intermediate nodes (like Tor)
+- **Encrypted Gossip**: All messages encrypted and authenticated
+- **Dynamic Routing Table**: Routes updated in real-time as topology changes
+- **Heartbeat Monitoring**: Automatic peer detection and cleanup
+- **Relay Capability**: Any node can act as gateway/relay/client
+
+Examples:
+```
+Device A → Device B → Device C → Internet Gateway
+     (direct relay through Device B and C)
+     
+Device A → (Bluetooth) → Device B → (Wi-Fi) → WiFi Router → Internet
+```
+
+#### **💾 OfflineFirstArchitecture - Complete Autonomy**
+System remains functional **when internet is completely disconnected**:
+
+- **Local Data Caching**: Essential data/config cached on device
+- **Peer Caching**: Request cached data from neighboring devices
+- **Short-Range Discovery**: Finds Bluetooth, NFC, and radio peers
+- **Adaptive Routing**: Selects optimal channel from available options
+- **Resource Management**: Monitors battery, CPU, memory, storage
+- **Power Save Mode**: Auto-activates at 20% battery
+- **Critical Mode**: Ultra-low-power operation at 5% battery
+- **Survivability Calculation**: Predicts offline duration based on resources
+
+#### **🤖 AdaptiveRouter - AI-Powered Routing**
+Intelligent network selection:
+- **Real-time Anomaly Detection**: Detects DPI/blocking attempts
+- **Automatic Route Switching**: Failover to next best route on error
+- **Latency Estimation**: Predicts RTT for different channels
+- **Reliability Scoring**: 0-1 confidence for each route
+- **Self-Learning**: Improves over time based on success/failure patterns
+
+#### **🛰️ Cellular Tower Integration**
+Automatic mobile network detection:
+- Scans for available towers with signal strength
+- Detects operator (МТК, Beeline, MegaFon, Rostelecom, etc.)
+- Identifies technology (5G, 4G, 3G, 2G)
+- LAC/CellID tracking for location
+- Automatic fallback to cellular when Wi-Fi fails
+
+#### **🔍 PeerDiscoveryService - Finding Nearby Devices**
+Detects devices without internet:
+- Bluetooth scanning (range: 10-100м)
+- NFC proximity detection
+- Short-range radio protocols (Zigbee, LoRaWan)
+- Automatic peer quality scoring
+- Encryption readiness verification
 
 ### ✨ New Features
 
