@@ -1,0 +1,46 @@
+name: Feature Request
+description: Suggest an idea for improving SOVA Protocol
+labels: "enhancement"
+
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for suggesting a feature! Let's make SOVA even better together. 🦉"
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: Describe the problem or limitation
+      placeholder: "I'm frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the Solution
+      description: How should this feature work?
+      placeholder: "I would like..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered other approaches?
+      placeholder: "Another way to solve this could be..."
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: Use Cases
+      description: What scenarios would benefit from this?
+      placeholder: "This would help when..."
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other relevant information or examples
