@@ -5,7 +5,7 @@
 ### Mobile ISP Bypass — WebSocket Relay
 
 Mobile ISPs block non-standard ports (9443, etc.), causing SOVA timeout on cellular data.
-v2.1.0 adds native WebSocket relay support, enabling traffic to flow through nginx:443
+v1.0.1 includes native WebSocket relay support, enabling traffic to flow through nginx:443
 as standard HTTPS — invisible to ISP DPI.
 
 **Architecture:**
@@ -25,7 +25,7 @@ Client (Hiddify/sing-box) → cupol.space:443/sova-ws (HTTPS WebSocket)
 - **Health endpoint** — `/health` on WS relay port returns JSON status
 - **CUPOL integration** — CSUB now injects `CUPOL-SOVA` as VMess+WS+TLS outbound on port 443
 - **Streisand support** — `vmess://` share link generated for V2RayNG/Streisand clients
-- **Dashboard** — version badge updated to v2.1, mobile-safe subtitle added
+- **Dashboard** — version badge updated to v1.0.1, mobile-safe subtitle added
 - **Protocol switch** — SOVA moved from Shadowsocks AEAD to VMess+WS+TLS (sing-box doesn't support transport on SS)
 
 ### Why VMess instead of Shadowsocks?
