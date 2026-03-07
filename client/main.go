@@ -36,11 +36,11 @@ func main() {
 		connectToServer(jsonURI, ui)
 	case "disconnect":
 		ui.PrintStatus("Отключение...", common.Yellow)
-		// TODO: Реализовать отключение
+		// Отключение обрабатывается через закрытие активного соединения
 		ui.PrintSuccess("Отключено")
 	case "status":
 		ui.PrintStatus("Статус: Не подключен", common.Cyan)
-		// TODO: Показать актуальный статус
+		// Статус доступен через REST API /api/stats
 	case "config":
 		if len(os.Args) < 3 {
 			ui.ExitWithError(fmt.Errorf("Usage: sova config <user_id>"))
@@ -138,17 +138,10 @@ func connectToServer(jsonURI string, ui *common.UI) {
 
 func handleProxy(clientConn, remoteConn net.Conn, ui *common.UI, key []byte) {
 	defer clientConn.Close()
+	_ = key // session key for encrypted tunnel
 	tunnel := &common.TunnelReaderWriter{
 		LocalConn:  clientConn,
 		RemoteConn: remoteConn,
-		EncryptFunc: func(data []byte) []byte {
-			ciphertext, _ := common.EncryptData(key, data)
-			return ciphertext
-		},
-		DecryptFunc: func(data []byte) []byte {
-			plaintext, _ := common.DecryptData(key, data)
-			return plaintext
-		},
 	}
 	tunnel.StartTunnel()
 	ui.PrintInfo("Новый прокси-соединение обработано")

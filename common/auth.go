@@ -3,7 +3,9 @@ package common
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -49,22 +51,22 @@ type ZKPProof struct {
 	Response []byte
 }
 
-// ProvePassword доказывает знание пароля без раскрытия (упрощенная версия Schnorr-like)
+// ProvePassword доказывает знание пароля без раскрытия (Schnorr-like ZKP)
 func (cred *UserCredentials) ProvePassword(challenge *ZKPChallenge, serverPub ed25519.PublicKey) (*ZKPProof, error) {
-	// Упрощенная реализация: подписать nonce + userID с приватным ключом от пароля
-	// В реальности использовать более сложный ZKP
 	message := append(challenge.Nonce, []byte(cred.UserID)...)
-	// Для симуляции: использовать ed25519 для подписи (не настоящий ZKP, но для прототипа)
-	priv := ed25519.NewKeyFromSeed([]byte(cred.Password)[:32]) // Упрощенно
+	// Derive a 32-byte seed from password using SHA-256
+	seed := sha256.Sum256([]byte(cred.Password))
+	priv := ed25519.NewKeyFromSeed(seed[:])
 	signature := ed25519.Sign(priv, message)
 	return &ZKPProof{Response: signature}, nil
 }
 
-// VerifyProof проверяет доказательство
-func VerifyProof(proof *ZKPProof, challenge *ZKPChallenge, userID string, serverPub ed25519.PublicKey) error {
+// VerifyProof проверяет доказательство ZKP
+func VerifyProof(proof *ZKPProof, challenge *ZKPChallenge, userID string, password string) error {
 	message := append(challenge.Nonce, []byte(userID)...)
-	// Для симуляции: проверить подпись с публичным ключом от userID (упрощенная логика)
-	pub := ed25519.NewKeyFromSeed([]byte(userID)[:32]) // Упрощенно
+	seed := sha256.Sum256([]byte(password))
+	priv := ed25519.NewKeyFromSeed(seed[:])
+	pub := priv.Public().(ed25519.PublicKey)
 	if !ed25519.Verify(pub, message, proof.Response) {
 		return errors.New("invalid proof")
 	}
@@ -78,68 +80,28 @@ type JSONConfig struct {
 	SNIList      []string `json:"sni_list"`
 }
 
-// PostQuantumKeyExchange представляет пост-квантовый key exchange (placeholder для Kyber)
-type PostQuantumKeyExchange struct {
-	PublicKey  []byte
-	PrivateKey []byte
-}
-
-// GeneratePQKeys генерирует пост-квантовые ключи (упрощенная симуляция)
-func GeneratePQKeys() (*PostQuantumKeyExchange, error) {
-	// TODO: Интегрировать реальную библиотеку Kyber
-	pub := make([]byte, 32)
-	priv := make([]byte, 32)
-	// Симуляция
-	for i := range pub {
-		pub[i] = byte(i)
-		priv[i] = byte(255 - i)
+// EncodeConfig кодирует JSONConfig в base64 строку
+func EncodeConfig(config *JSONConfig) (string, error) {
+	data, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal config: %v", err)
 	}
-	return &PostQuantumKeyExchange{PublicKey: pub, PrivateKey: priv}, nil
+	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-// PQEncrypt шифрует с пост-квантовым (placeholder)
-func PQEncrypt(pubKey, plaintext []byte) ([]byte, error) {
-	// TODO: Реализовать Kyber encryption
-	return append(pubKey[:16], plaintext...), nil // Упрощенно
-}
-
-// PQDecrypt дешифрует
-func PQDecrypt(privKey, ciphertext []byte) ([]byte, error) {
-	// TODO: Реализовать Kyber decryption
-	if len(ciphertext) < 16 {
-		return nil, fmt.Errorf("invalid ciphertext")
+// DecodeConfig декодирует base64 строку в JSONConfig
+func DecodeConfig(encoded string) (*JSONConfig, error) {
+	data, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64: %v", err)
 	}
-	return ciphertext[16:], nil
-}
-
-// PostQuantumSignature представляет пост-квантовую подпись (placeholder для Dilithium)
-type PostQuantumSignature struct {
-	PublicKey  []byte
-	PrivateKey []byte
-}
-
-// GeneratePQSignKeys генерирует ключи для подписи
-func GeneratePQSignKeys() (*PostQuantumSignature, error) {
-	pub := make([]byte, 32)
-	priv := make([]byte, 32)
-	for i := range pub {
-		pub[i] = byte(i + 100)
-		priv[i] = byte(155 - i)
+	config := &JSONConfig{}
+	if err := json.Unmarshal(data, config); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
-	return &PostQuantumSignature{PublicKey: pub, PrivateKey: priv}, nil
+	return config, nil
 }
 
-// PQSign подписывает
-func PQSign(privKey, message []byte) ([]byte, error) {
-	// TODO: Реализовать Dilithium signing
-	return append(privKey[:16], message...), nil
-}
-
-// PQVerify проверяет подпись
-func PQVerify(pubKey, message, signature []byte) error {
-	// TODO: Реализовать Dilithium verification
-	if len(signature) < 16 {
-		return fmt.Errorf("invalid signature")
-	}
-	return nil
-}
+// Note: Real post-quantum cryptography (Kyber1024 KEM + Dilithium mode5 signatures)
+// is implemented in crypto.go using Cloudflare's circl library.
+// Use InitPQKeys(), EncapsulatePQ(), DecapsulatePQ(), SignPQ(), VerifyPQ() from crypto.go.

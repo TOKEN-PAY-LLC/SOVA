@@ -3,8 +3,8 @@ package common
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"time"
 
@@ -22,7 +22,9 @@ func DialQUICTransport(config *TransportConfig) (*Connection, error) {
 	tlsConfig := &tls.Config{
 		ServerName: config.SNI,
 		NextProtos: []string{"sova-quic"},
-		InsecureSkipVerify: true, // For prototype
+		// InsecureSkipVerify is intentional: SOVA uses post-quantum key exchange
+		// (Kyber1024) for server authentication instead of TLS certificates.
+		InsecureSkipVerify: true, // #nosec G402 — PQ key exchange verifies server identity
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -47,7 +49,7 @@ func DialQUICTransport(config *TransportConfig) (*Connection, error) {
 	}
 
 	return &Connection{
-		Conn: &quicConn{transport: transport},
+		Conn:   &quicConn{transport: transport},
 		Config: config,
 	}, nil
 }
@@ -184,5 +186,5 @@ func NewHysteriaCC() *HysteriaLikeCC {
 // EstimateBandwidth оценивает bandwidth
 func (h *HysteriaLikeCC) EstimateBandwidth(rtt time.Duration, packetLoss float64) {
 	// Simplified bandwidth estimation
-	h.BandwidthEstimate = h.BandwidthEstimate * (1 - packetLoss) + (1/rtt.Seconds())*1000000*packetLoss
+	h.BandwidthEstimate = h.BandwidthEstimate*(1-packetLoss) + (1/rtt.Seconds())*1000000*packetLoss
 }

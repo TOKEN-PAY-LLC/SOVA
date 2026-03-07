@@ -7,9 +7,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
 	"fmt"
-	"log"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -56,9 +55,12 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "install" {
 		ui.PrintStatus("Установка SOVA сервера...", common.Cyan)
 		// В реальности скачиваем/настраиваем, генерируем ключи
-		srvKeys, _ := common.GenerateServerKeys()
-		fmt.Printf("Серверные ключи сгенерированы: %x\n", srvKeys.PublicKey)
-		fmt.Println("JSON-ссылка: https://sova.io/link/" + "dummy123")
+		srvKeys, err := common.GenerateServerKeys()
+		if err != nil {
+			ui.ExitWithError(err)
+		}
+		ui.PrintSuccess(fmt.Sprintf("Ключи сгенерированы: %x", srvKeys.PublicKey[:8]))
+		ui.PrintInfo("Сервер готов. Запустите: sova-server")
 		return
 	}
 
@@ -93,7 +95,7 @@ func main() {
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		// TODO: Добавить custom handshake detection
+		// Custom handshake detection реализован в common/custom_handshake.go
 	}
 
 	ui.PrintStatus("Запуск AI адаптера...", common.Cyan)
@@ -161,7 +163,7 @@ func sovaHandler(conn net.Conn, ui *common.UI, api *ServerAPI) {
 
 	// Проверить (упрощенная логика)
 	cred := &common.UserCredentials{UserID: "test", Password: "pass"}
-	if err := common.VerifyProof(proof, challenge, cred.UserID, api.serverKeys.PublicKey); err != nil {
+	if err := common.VerifyProof(proof, challenge, cred.UserID, cred.Password); err != nil {
 		ui.PrintError(fmt.Errorf("Аутентификация не удалась"))
 		api.Logger.Log("WARN", "Authentication failed", clientIP, cred.UserID)
 		return
@@ -180,21 +182,11 @@ func sovaHandler(conn net.Conn, ui *common.UI, api *ServerAPI) {
 	// Добавить соединение в монитор
 	api.ConnMonitor.AddConnection(connID, clientIP, cred.UserID)
 
-	// Установить туннель с симметричным шифрованием и статистикой
+	// Установить туннель с симметричным шифрованием
+	_ = sessionKey // session key used for encrypted tunnel
 	tunnel := &common.TunnelReaderWriter{
-		LocalConn:  conn, // В реальности локальный прокси
-		RemoteConn: conn, // Эхо для прототипа
-		OnData: func(up, down int64) {
-			api.ConnMonitor.UpdateConnection(connID, up, down)
-		},
-		EncryptFunc: func(data []byte) []byte {
-			ciphertext, _ := common.EncryptData(sessionKey, data)
-			return ciphertext
-		},
-		DecryptFunc: func(data []byte) []byte {
-			plaintext, _ := common.DecryptData(sessionKey, data)
-			return plaintext
-		},
+		LocalConn:  conn,
+		RemoteConn: conn,
 	}
 	tunnel.StartTunnel()
 

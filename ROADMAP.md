@@ -1,170 +1,105 @@
 # SOVA Protocol Roadmap
 
 ## Vision
-SOVA Protocol aims to become the most secure, adaptive, and DPI-resistant protocol for unrestricted internet access, empowering users with privacy-preserving technology while remaining open-source and community-driven.
+
+SOVA — самый быстрый, умный и невидимый протокол для свободного интернета. Бесплатный, с открытым кодом, управляемый сообществом.
 
 ---
 
-## v1.0.0 ✅ [Released]
+## v2.0.0 ✅ [Released — March 2026]
 
-### Core Features
-- [x] Web Mirror Mode (custom TLS handshake)
-- [x] QUIC Mode (UDP-based)
-- [x] WebSocket Mode (CDN-compatible)
-- [x] Master/Session key architecture
-- [x] Post-quantum cryptography (Kyber, Dilithium)
-- [x] Zero-Knowledge Proof authentication
-- [x] Terminal UI with progress bars
-- [x] REST API for configuration
-- [x] Cross-platform binaries (Windows, macOS, Linux)
-- [x] Autonomous installation
-- [x] Comprehensive documentation
-- [x] Unit tests and benchmarks
+- [x] Traffic acceleration (compression, pooling, route optimizer)
+- [x] Stealth engine (traffic mimicry, jitter, padding, decoy)
+- [x] Web dashboard (purple theme, real-time stats)
+- [x] SOCKS5 proxy server
+- [x] DNS-over-SOVA resolver
+- [x] Post-quantum crypto: Kyber1024 KEM + Dilithium mode5 (circl v1.3.7)
+- [x] Zero-Knowledge Proof authentication (Ed25519)
+- [x] AES-256-GCM + ChaCha20-Poly1305 encryption
+- [x] 3 transport modes: Web Mirror, QUIC, WebSocket
+- [x] AI-adaptive transport switching
+- [x] Offline-first architecture + mesh networking
+- [x] Animated owl installers (Linux/macOS/Windows)
+- [x] Cross-platform builds (amd64, arm64)
+- [x] 44+ unit tests + benchmarks
+- [x] Full documentation (README, SECURITY, CONTRIBUTING)
 
 ---
 
-## v1.1.0 🚀 [Q1 2026]
+## v2.1.0 🚀 [Q2 2026]
 
-### Network Features
+### Performance
 - [ ] TUN/TAP mode for full VPN capability
-- [ ] DNS over SOVA (DoSOVA)
-- [ ] Split tunneling support
+- [ ] Split tunneling
 - [ ] IPv6 support
-- [ ] Connection pooling for better performance
+- [ ] HTTP/3 multiplexing
 
-### Protocol Enhancements
-- [ ] Improved handshake fingerprinting
-- [ ] More SNI lists and domain rotation
-- [ ] Custom protocol morphing rules
-- [ ] Hybrid transport modes (multiple transports in parallel)
-
-### Client Features
+### Client
 - [ ] Configuration profiles
-- [ ] Connect/disconnect automation
-- [ ] Bandwidth monitoring and limits
-- [ ] Log viewing and export
 - [ ] System tray integration (Windows/macOS)
+- [ ] Bandwidth monitoring
+- [ ] Auto-reconnect
 
 ---
 
-## v1.2.0 📦 [Q2 2026]
+## v2.2.0 📦 [Q3 2026]
 
 ### Plugin System
 - [ ] Public plugin API
-- [ ] Xray/V2Ray full integration
-- [ ] Sing-Box integration
-- [ ] Custom transport module support
-- [ ] Custom encryption algorithm support
+- [ ] Full Xray/V2Ray integration
+- [ ] Sing-Box native support
+- [ ] Custom transport modules
 
-### Mobile Support
-- [ ] Android app (Kotlin/Android SDK)
-- [ ] iOS app (Swift)
-- [ ] Unified configuration sync
-- [ ] Mobile-specific optimizations
-
-### Monitoring & Analytics
-- [ ] Real-time statistics dashboard
-- [ ] Connection analytics
-- [ ] Performance profiling
-- [ ] Centralized server management (multi-server)
+### Mobile
+- [ ] Android app
+- [ ] iOS app
+- [ ] Config sync across devices
 
 ---
 
-## v1.3.0 🤖 [Q3 2026]
+## v3.0.0 🌐 [Q4 2026]
 
-### Advanced AI
-- [ ] Machine learning model for pattern detection
-- [ ] Neural network-based transport selection
-- [ ] Predictive DPI evasion
-- [ ] Anomaly detection for network attacks
-- [ ] Reinforcement learning for continuous optimization
-
-### Security Enhancements
-- [ ] Hardware security module (HSM) support
-- [ ] Key splitting and escrow options
-- [ ] Audit logging with tamper detection
-- [ ] Compliance modules (FIPS 140-2, Common Criteria)
-
----
-
-## v2.0.0 🌐 [Q4 2026]
-
-### Major Redesign
-- [ ] Decentralized infrastructure (P2P nodes)
-- [ ] Blockchain-based key delivery
+### Decentralization
+- [ ] P2P node infrastructure
 - [ ] Multi-hop routing
-- [ ] Load balancing across servers
-- [ ] Redundancy and failover
+- [ ] Load balancing
+- [ ] Advanced ML-based DPI evasion
+- [ ] Hardware security module (HSM) support
 
 ### New Transport Modes
 - [ ] RTP/VoIP masquerade
 - [ ] Game packet morphing
 - [ ] IoT protocol tunneling
-- [ ] Mesh network mode
-
----
-
-## Future Considerations 💭
-
-### Long-term Goals
-- Standardization efforts (IETF, research community)
-- Open-source audits (third-party security reviews)
-- Academic research collaboration
-- Community-maintained plugin ecosystem
-- Enterprise licensing options
-
-### Potential Features
-- Hardware acceleration (GPU/FPGA)
-- Quantum key distribution (QKD) integration
-- Blockchain-based reputation system
-- Decentralized governance
-- AI adversarial testing framework
-
----
-
-## Community Contributions
-
-We welcome community contributions! Priority areas:
-1. **Documentation**: Language translations, protocol specifications
-2. **Testing**: Platform-specific testing, edge case discovery
-3. **Performance**: Optimization patches for specific scenarios
-4. **Features**: New transport modes, adaptive strategies
-5. **Security**: Vulnerability research, audit improvements
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
 ## Version Policy
 
-- **Major versions** (v2.0.0): Significant architectural changes, breaking changes
-- **Minor versions** (v1.1.0): New features, backward-compatible
-- **Patch versions** (v1.0.1): Bug fixes, security patches
+- **Major** (v3.0.0): Breaking changes, architecture redesign
+- **Minor** (v2.1.0): New features, backward-compatible
+- **Patch** (v2.0.1): Bug fixes, security patches
 
-**Security fixes** are released immediately as patch versions.
-
----
-
-## Timeline
-
-| Version | Status | Target Date | Key Focus |
-|---------|--------|-------------|-----------|
-| v1.0.0  | ✅ Released | Dec 2025 | Foundation & PQ Core |
-| v1.1.0  | 🚀 In Progress | Q1 2026 | Full VPN & L2 Support |
-| v1.2.0  | 📅 Planned | Q2 2026 | Plugins & Mobile |
-| v1.3.0  | 📅 Planned | Q3 2026 | Advanced AI & Security |
-| v2.0.0  | 📅 Planned | Q4 2026 | Decentralization |
+Security fixes are released immediately.
 
 ---
 
-## Feedback & Suggestions
+## Contributing
 
-Have ideas for the roadmap? 
-- Open a GitHub issue with the `roadmap` label
-- Email: feedback@sova.io
-- Discussion forum: https://github.com/IvanChernykh/SOVA/discussions
+We welcome contributions! Priority areas:
+1. **Testing** — platform-specific, edge cases
+2. **Performance** — optimization patches
+3. **Features** — new transports, strategies
+4. **Security** — vulnerability research
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ---
 
-*Last updated: December 2025*
-*This roadmap is subject to change based on community feedback and priorities*
+## Feedback
+
+- **GitHub Issues**: https://github.com/IvanChernykh/SOVA/issues (label: `roadmap`)
+- **Discussions**: https://github.com/IvanChernykh/SOVA/discussions
+
+---
+
+*Last updated: March 2026*

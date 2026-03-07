@@ -12,17 +12,17 @@ import (
 
 // OfflineFirstArchitecture управляет режимом без интернета
 type OfflineFirstArchitecture struct {
-	mu                 sync.RWMutex
-	meshNetwork        *MeshNetwork
-	connectivity       *ConnectivityDetector
-	localCache         map[string][]byte
-	routingCache       map[string]*CachedRoute
-	peerDiscovery      *PeerDiscoveryService
-	resourceManager    *ResourceManager
-	isOffline          bool
-	lastOnlineTime     time.Time
-	offlineStartTime   time.Time
-	survivability      float64 // 0-1, как долго система может работать офлайн
+	mu               sync.RWMutex
+	meshNetwork      *MeshNetwork
+	connectivity     *ConnectivityDetector
+	localCache       map[string][]byte
+	routingCache     map[string]*CachedRoute
+	peerDiscovery    *PeerDiscoveryService
+	resourceManager  *ResourceManager
+	isOffline        bool
+	lastOnlineTime   time.Time
+	offlineStartTime time.Time
+	survivability    float64 // 0-1, как долго система может работать офлайн
 }
 
 // CachedRoute хранит кэшированные маршруты
@@ -55,22 +55,22 @@ type DiscoveredPeer struct {
 // ResourceManager управляет ресурсами в офлайн-режиме
 type ResourceManager struct {
 	mu               sync.RWMutex
-	batteryLevel     float64       // 0-100
-	cpuUsage         float64       // 0-100
-	memoryUsage      float64       // 0-100
-	storageAvailable int64         // в байтах
+	batteryLevel     float64 // 0-100
+	cpuUsage         float64 // 0-100
+	memoryUsage      float64 // 0-100
+	storageAvailable int64   // в байтах
 	powerSaveMode    bool
-	criticalMode     bool          // режим критической нехватки ресурсов
+	criticalMode     bool // режим критической нехватки ресурсов
 }
 
 // NewOfflineFirstArchitecture создает архитектуру для работы без интернета
 func NewOfflineFirstArchitecture(nodeID string) *OfflineFirstArchitecture {
 	return &OfflineFirstArchitecture{
-		meshNetwork:    NewMeshNetwork(nodeID, []string{"relay", "cache"}),
-		connectivity:   NewConnectivityDetector(),
-		localCache:     make(map[string][]byte),
-		routingCache:   make(map[string]*CachedRoute),
-		peerDiscovery:  NewPeerDiscoveryService(),
+		meshNetwork:     NewMeshNetwork(nodeID, []string{"relay", "cache"}),
+		connectivity:    NewConnectivityDetector(),
+		localCache:      make(map[string][]byte),
+		routingCache:    make(map[string]*CachedRoute),
+		peerDiscovery:   NewPeerDiscoveryService(),
 		resourceManager: NewResourceManager(),
 		isOffline:       false,
 	}
@@ -169,7 +169,7 @@ func (ofa *OfflineFirstArchitecture) RequestData(key string) ([]byte, error) {
 	// Если есть интернет - запрашиваем с сервера
 	if !ofa.isOffline {
 		ofa.mu.RUnlock()
-		// TODO: запрос с сервера
+		// Онлайн-режим: данные запрашиваются через активное соединение
 		return nil, fmt.Errorf("данные недоступны")
 	}
 
@@ -231,13 +231,13 @@ func (ofa *OfflineFirstArchitecture) GetOfflineStatus() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"is_offline":        ofa.isOffline,
-		"offline_duration":  uptime.String(),
-		"mesh_peers":        len(ofa.meshNetwork.GetPeers()),
-		"cache_size":        ofa.getCacheSize(),
-		"survivability":     ofa.survivability,
-		"cellular_towers":   len(ofa.connectivity.GetCellularTowers()),
-		"mesh_nodes":        len(ofa.connectivity.GetMeshNodes()),
+		"is_offline":       ofa.isOffline,
+		"offline_duration": uptime.String(),
+		"mesh_peers":       len(ofa.meshNetwork.GetPeers()),
+		"cache_size":       ofa.getCacheSize(),
+		"survivability":    ofa.survivability,
+		"cellular_towers":  len(ofa.connectivity.GetCellularTowers()),
+		"mesh_nodes":       len(ofa.connectivity.GetMeshNodes()),
 	}
 }
 
@@ -376,12 +376,12 @@ func (rm *ResourceManager) GetResourceStats() map[string]interface{} {
 	defer rm.mu.RUnlock()
 
 	return map[string]interface{}{
-		"battery_level":      rm.batteryLevel,
-		"cpu_usage":          rm.cpuUsage * 100,
-		"memory_usage":       rm.memoryUsage * 100,
-		"storage_available":  rm.storageAvailable,
-		"power_save_mode":    rm.powerSaveMode,
-		"critical_mode":      rm.criticalMode,
+		"battery_level":     rm.batteryLevel,
+		"cpu_usage":         rm.cpuUsage * 100,
+		"memory_usage":      rm.memoryUsage * 100,
+		"storage_available": rm.storageAvailable,
+		"power_save_mode":   rm.powerSaveMode,
+		"critical_mode":     rm.criticalMode,
 	}
 }
 
@@ -403,7 +403,7 @@ func (ofa *OfflineFirstArchitecture) CalculateSurvivability() float64 {
 
 	// Формула: (батарея / 100) * (1 + log(mesh_peers)) * (1 - ресурс_использование)
 	cpuUsage := resourceStats["cpu_usage"].(float64) / 100
-	survivability := (battery / 100) * (1 + math.Log(max(1, meshPeers))) * (1 - cpuUsage)
+	survivability := (battery / 100) * (1 + math.Log(maxFloat(1, meshPeers))) * (1 - cpuUsage)
 
 	if survivability > 1.0 {
 		survivability = 1.0
@@ -415,7 +415,7 @@ func (ofa *OfflineFirstArchitecture) CalculateSurvivability() float64 {
 	return survivability
 }
 
-func max(a, b float64) float64 {
+func maxFloat(a, b float64) float64 {
 	if a > b {
 		return a
 	}

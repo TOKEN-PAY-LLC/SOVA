@@ -11,23 +11,23 @@ import (
 
 	"github.com/cloudflare/circl/kem"
 	"github.com/cloudflare/circl/kem/kyber/kyber1024"
-	"github.com/cloudflare/circl/sign"
-	"github.com/cloudflare/circl/sign/dilithium/dilithium5"
+	"github.com/cloudflare/circl/sign/dilithium/mode5"
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
 // MasterKey хранит симметричный ключ сервера, генерируется один раз
 var MasterKey []byte
 
-// PQMasterKey хранит публичный ключ сервера для пост-квантового шифрования
-var PQMasterPublicKey kem.PublicKey
-var PQMasterPrivateKey kem.PrivateKey
+// PQ KEM keys (Kyber1024)
+var pqKEMScheme = kyber1024.Scheme()
+var PQMasterPublicKey []byte  // marshalled public key
+var PQMasterPrivateKey []byte // marshalled private key
+var pqKEMPublicKey kem.PublicKey
+var pqKEMPrivateKey kem.PrivateKey
 
-// PQSignPublicKey сохраняет публичный ключ подписи Dilithium
-var PQSignPublicKey sign.PublicKey
-var PQSignPrivateKey sign.PrivateKey
-
-// MasterKey хранит симметричный ключ сервера, генерируется один раз
-var MasterKey []byte
+// PQ Sign keys (Dilithium mode5)
+var PQSignPublicKey *mode5.PublicKey
+var PQSignPrivateKey *mode5.PrivateKey
 
 // InitMasterKey создает ключ, если он ещё не инициализирован
 func InitMasterKey() error {
@@ -87,18 +87,27 @@ func DecryptData(key, ciphertext []byte) ([]byte, error) {
 	nonce, ct := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	return gcm.Open(nil, nonce, ct, nil)
 }
+
 // InitPQKeys инициализирует пост-квантовые ключи сервера
 func InitPQKeys() error {
 	// Инициализировать Kyber1024 для KEM
-	pk, sk, err := kyber1024.GenerateKey(rand.Reader)
+	pk, sk, _ := pqKEMScheme.GenerateKeyPair()
+	pqKEMPublicKey = pk
+	pqKEMPrivateKey = sk
+
+	pkBytes, err := pk.MarshalBinary()
 	if err != nil {
 		return err
 	}
-	PQMasterPublicKey = pk
-	PQMasterPrivateKey = sk
+	skBytes, err := sk.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	PQMasterPublicKey = pkBytes
+	PQMasterPrivateKey = skBytes
 
-	// Инициализировать Dilithium5 для подписей
-	spk, ssk, err := dilithium5.GenerateKey(rand.Reader)
+	// Инициализировать Dilithium mode5 для подписей
+	spk, ssk, err := mode5.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
 	}
@@ -111,60 +120,107 @@ func InitPQKeys() error {
 // EncapsulatePQ выполняет инкапсуляцию для PQ-КЕМ
 // Возвращает шифротекст и общий секрет
 func EncapsulatePQ() ([]byte, []byte, error) {
-	if PQMasterPublicKey == nil {
+	if pqKEMPublicKey == nil {
 		return nil, nil, errors.New("PQ public key not initialized")
 	}
-	
-	// Используем Kyber1024 для инкапсуляции
-	encapKey, err := PQMasterPublicKey.Encaps(rand.Reader)
+
+	ct, ss, err := pqKEMScheme.Encapsulate(pqKEMPublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
-	
-	return encapKey.Ciphertext(), encapKey.SharedSecret(), nil
+
+	return ct, ss, nil
 }
 
 // DecapsulatePQ дешифрует инкапсулированный общий секрет
 func DecapsulatePQ(ciphertext []byte) ([]byte, error) {
-	if PQMasterPrivateKey == nil {
+	if pqKEMPrivateKey == nil {
 		return nil, errors.New("PQ private key not initialized")
 	}
-	
-	// Используем Kyber1024 для декапсуляции
-	sharedSecret, err := PQMasterPrivateKey.Decaps(ciphertext)
+
+	ss, err := pqKEMScheme.Decapsulate(pqKEMPrivateKey, ciphertext)
 	if err != nil {
 		return nil, err
 	}
-	
-	return sharedSecret, nil
+
+	return ss, nil
 }
 
-// SignPQ подписывает данные используя Dilithium5
+// SignPQ подписывает данные используя Dilithium mode5
 func SignPQ(message []byte) ([]byte, error) {
 	if PQSignPrivateKey == nil {
 		return nil, errors.New("PQ signing key not initialized")
 	}
-	
-	return PQSignPrivateKey.Sign(rand.Reader, message)
+
+	sig := make([]byte, mode5.SignatureSize)
+	mode5.SignTo(PQSignPrivateKey, message, sig)
+	return sig, nil
 }
 
-// VerifyPQ проверяет подпись Dilithium5
-func VerifyPQ(publicKey sign.PublicKey, message, signature []byte) bool {
+// VerifyPQ проверяет подпись Dilithium mode5
+func VerifyPQ(publicKey *mode5.PublicKey, message, signature []byte) bool {
 	if publicKey == nil {
 		return false
 	}
-	
-	return publicKey.Verify(message, signature)
+
+	return mode5.Verify(publicKey, message, signature)
 }
 
-// GetPQPublicKeysBytes возвращает сериализованные пубичные ключи для отправки клиенту
+// GetPQPublicKeysBytes возвращает сериализованные публичные ключи для отправки клиенту
 func GetPQPublicKeysBytes() (kyberPK []byte, dilPK []byte, err error) {
 	if PQMasterPublicKey == nil || PQSignPublicKey == nil {
 		return nil, nil, errors.New("PQ keys not initialized")
 	}
-	
-	kyberPK = PQMasterPublicKey.Bytes()
-	dilPK = PQSignPublicKey.Bytes()
-	
-	return kyberPK, dilPK, nil
+
+	dilBytes, err := PQSignPublicKey.MarshalBinary()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return PQMasterPublicKey, dilBytes, nil
+}
+
+// EncryptChaCha20 шифрует данные с ChaCha20-Poly1305
+func EncryptChaCha20(key, plaintext []byte) ([]byte, error) {
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+	return aead.Seal(nonce, nonce, plaintext, nil), nil
+}
+
+// DecryptChaCha20 дешифрует данные с ChaCha20-Poly1305
+func DecryptChaCha20(key, ciphertext []byte) ([]byte, error) {
+	aead, err := chacha20poly1305.NewX(key)
+	if err != nil {
+		return nil, err
+	}
+	nonceSize := aead.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, errors.New("ciphertext too short for chacha20")
+	}
+	nonce, ct := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	return aead.Open(nil, nonce, ct, nil)
+}
+
+// GenerateRandomBytes генерирует криптографически безопасные случайные байты
+func GenerateRandomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	_, err := rand.Read(b)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// DeriveKey выводит ключ из пароля используя HKDF
+func DeriveKey(secret, salt, info []byte) ([]byte, error) {
+	h := hmac.New(sha256.New, salt)
+	h.Write(secret)
+	h.Write(info)
+	return h.Sum(nil)[:32], nil
 }

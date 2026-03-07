@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -168,8 +169,8 @@ func (api *ServerAPI) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	config := &common.JSONConfig{
 		ServerPubKey: base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
-		Transports:   []string{"web_mirror", "cloud_carrier", "shadow_websocket"},
-		SNIList:      []string{"sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"},
+		Transports:   []string{"web_mirror"},
+		SNIList:      []string{"sova.example.com"},
 	}
 
 	encoded, err := common.EncodeConfig(config)
@@ -198,17 +199,31 @@ func (api *ServerAPI) handleExportConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Build export based on client type
+	config := &common.JSONConfig{
+		ServerPubKey: base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
+		Transports:   []string{"web_mirror", "cloud_carrier", "shadow_websocket"},
+		SNIList:      []string{"sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"},
+	}
+
+	var exportedConfig string
 	switch clientType {
 	case "xray":
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, "{\"protocol\":\"vless\",\"address\":\"%s\",\"port\":443,\"id\":\"%s\"}", "your-sova-server.com", userID)
+		exportedConfig = api.exportV2RayConfig(config, userID)
+	case "v2ray":
+		exportedConfig = api.exportV2RayConfig(config, userID)
 	case "singbox":
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, "{\"type\":\"sova\",\"server\":\"%s\",\"port\":443,\"password\":\"%s\"}", "your-sova-server.com", userID)
+		exportedConfig = api.exportSingBoxConfig(config, userID)
+	case "clash":
+		exportedConfig = api.exportClashConfig(config, userID)
+	case "nekoray":
+		exportedConfig = api.exportNekoRayConfig(config, userID)
 	default:
-		http.Error(w, "unsupported client", http.StatusBadRequest)
+		http.Error(w, "Unsupported client type. Supported: xray, v2ray, singbox, clash, nekoray", http.StatusBadRequest)
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"config": exportedConfig})
 }
 
 // handleProxyConfig возвращает конфигурации для прокси-клиентов
@@ -240,31 +255,6 @@ func (api *ServerAPI) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/config", api.handleConfig)
 	mux.HandleFunc("/api/export", api.handleExportConfig)
 	mux.HandleFunc("/api/proxy", api.handleProxyConfig)
-}
-
-	config := &common.JSONConfig{
-		ServerPubKey: base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
-		Transports:   []string{"web_mirror"},
-		SNIList:      []string{"sova.example.com"},
-	}
-
-	var exportedConfig string
-	switch clientType {
-	case "clash":
-		exportedConfig = api.exportClashConfig(config, userID)
-	case "v2ray":
-		exportedConfig = api.exportV2RayConfig(config, userID)
-	case "singbox":
-		exportedConfig = api.exportSingBoxConfig(config, userID)
-	case "nekoray":
-		exportedConfig = api.exportNekoRayConfig(config, userID)
-	default:
-		http.Error(w, "Unsupported client type", http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"config": exportedConfig})
 }
 
 // Экспорт конфигураций для различных клиентов
@@ -375,18 +365,25 @@ func (api *ServerAPI) exportNekoRayConfig(config *common.JSONConfig, userID stri
 }`, userID, userID)
 }
 
-// StartAPI запускает HTTP API сервер
+// StartAPI запускает HTTP API сервер с дашбордом
 func (api *ServerAPI) StartAPI(port int) {
 	mux := http.NewServeMux()
+
+	// API маршруты
 	mux.HandleFunc("/api/register", api.handleRegister)
 	mux.HandleFunc("/api/stats", api.handleStats)
 	mux.HandleFunc("/api/config", api.handleConfig)
 	mux.HandleFunc("/api/export", api.handleExportConfig)
 	mux.HandleFunc("/api/proxy", api.handleProxyConfig)
 
+	// Веб-дашборд
+	dashboard := NewDashboard(api)
+	dashboard.RegisterDashboardRoutes(mux)
+
 	// Применить middleware
 	handler := api.Logger.Middleware(api.RateLimiter.Middleware(mux))
 
 	go http.ListenAndServe(":"+strconv.Itoa(port), handler)
-	fmt.Printf("API server started on port %d\n", port)
+	fmt.Printf("SOVA Dashboard: http://localhost:%d\n", port)
+	fmt.Printf("SOVA API:       http://localhost:%d/api/\n", port)
 }

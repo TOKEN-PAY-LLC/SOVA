@@ -1,161 +1,134 @@
-# CONTRIBUTING.md
+# Contributing to SOVA Protocol
 
 ## Development Setup
 
 ### Prerequisites
-- Go 1.21 or higher
-- Make
+- Go 1.21+
 - Git
-- Standard C compiler (for circl library)
+- Make (optional, for Makefile targets)
 
-### Clone and Setup
+### Clone and Build
+
 ```bash
 git clone https://github.com/IvanChernykh/SOVA.git
 cd SOVA
-go mod download
 go mod tidy
+go build ./server/
+go build ./client/
 ```
 
-### Building
+Or use Make:
 
-#### Build for current platform
 ```bash
-make build
-```
-
-#### Build all platforms
-```bash
-make build-all
-```
-
-Individual builds:
-```bash
-make build-server          # Build server only
-make build-client          # Build client only
-make build-linux-amd64     # Build for Linux AMD64
-make build-windows-amd64   # Build for Windows AMD64
-make build-macos-arm64     # Build for macOS ARM64
+make build            # server + client for current OS
+make build-all        # all platforms (linux/windows/macos, amd64/arm64)
+make build-server     # server only
+make build-client     # client only
 ```
 
 ### Testing
 
 ```bash
-# Run all tests
-make test
-
-# Run specific test suites
-make test-crypto
-make test-ai
-make test-integration
-
-# Run benchmarks
-make bench
+go test -v ./common/           # all tests (44+)
+go test -bench=. ./common/     # benchmarks
+make test                      # with coverage report
 ```
 
-### Code Quality
+### Code Formatting
 
 ```bash
-# Format code
-make fmt
-
-# Lint code
-make lint
+go fmt ./...
 ```
 
-### Creating a Release
+---
 
-1. Update version in code if needed
-2. Create a new branch `release/vX.Y.Z`
-3. Commit changes
-4. Create annotated tag:
-   ```bash
-   git tag -a vX.Y.Z -m "Release vX.Y.Z: Description"
-   ```
-5. Push tag:
-   ```bash
-   git push origin vX.Y.Z
-   ```
-6. GitHub Actions will automatically build binaries and create a release
-
-### Project Structure
+## Project Structure
 
 ```
-c:\Users\user\Desktop\SOVA\
-├── server/              # Server implementation
-│   ├── main.go         # Server entry point
-│   ├── api.go          # REST API endpoints
-│   ├── config.go       # Configuration
-│   └── middleware.go   # HTTP middleware
-├── client/             # Client implementation
-│   └── main.go         # Client CLI
-├── common/             # Shared libraries
-│   ├── crypto.go       # Cryptography (AES, PQ)
-│   ├── crypto_test.go  # Crypto tests
-│   ├── transport.go    # Transport modes
-│   ├── auth.go         # Authentication
-│   ├── ai.go          # AI adapter
-│   ├── ui.go          # Terminal UI
-│   └── ...            # Other modules
-├── plugin/            # Plugin support
-│   └── xray_plugin.go # Xray integration
-├── go.mod             # Go module file
-├── Makefile           # Build automation
-├── LICENSE            # MIT License
-├── SECURITY.md        # Security policy
-└── README.md          # Documentation
+SOVA/
+├── server/
+│   ├── main.go          # Server entry point, TLS listener, ZKP auth
+│   ├── api.go           # REST API endpoints
+│   ├── dashboard.go     # Web dashboard (purple theme)
+│   ├── config.go        # Configuration structs
+│   └── middleware.go     # Rate limiting, logging
+├── client/
+│   └── main.go          # Client CLI (connect, status, proxy)
+├── common/
+│   ├── crypto.go        # AES-GCM, ChaCha20, Kyber1024, Dilithium mode5
+│   ├── auth.go          # ZKP authentication, config encoding
+│   ├── transport.go     # Transport modes, adaptive switching
+│   ├── ai.go            # AI adapter for DPI evasion
+│   ├── accelerator.go   # Traffic compression, pooling, routing
+│   ├── stealth.go       # Traffic mimicry, jitter, padding, decoy
+│   ├── socks5.go        # SOCKS5 proxy server
+│   ├── dns.go           # DNS-over-SOVA resolver
+│   ├── ui.go            # Terminal UI (purple theme, owl)
+│   ├── quic_transport.go
+│   ├── websocket_transport.go
+│   ├── custom_handshake.go
+│   ├── offline_first.go
+│   └── *_test.go        # Tests for all modules
+├── plugin/
+│   └── xray_plugin.go   # Xray/Sing-Box/V2Ray integration
+├── install.sh           # Linux/macOS installer
+├── install.ps1          # Windows installer
+├── Makefile             # Build automation
+├── go.mod / go.sum      # Go modules
+└── *.md                 # Documentation
 ```
 
-## Code Style
-
-- Follow Go standard code conventions
-- Use `gofmt` for formatting
-- Add tests for new features
-- Document public functions and types
+---
 
 ## Key Modules
 
-### Cryptography (`common/crypto.go`)
-- AES-256-GCM for session encryption
-- Post-quantum Kyber1024 for KEM
-- Dilithium5 for signatures
-- Uses Cloudflare's `circl` library
+| Module | File | Description |
+|---|---|---|
+| Crypto | `crypto.go` | AES-256-GCM, ChaCha20, Kyber1024 KEM, Dilithium mode5 |
+| Auth | `auth.go` | Ed25519 ZKP, config encode/decode |
+| AI | `ai.go` | Event recording, strategy matching, adaptive switching |
+| Accelerator | `accelerator.go` | Gzip compression, connection pool, route optimizer |
+| Stealth | `stealth.go` | Traffic mimicry, jitter, padding, decoy generation |
+| Transport | `transport.go` | TLS/QUIC/WebSocket with AI-driven switching |
+| SOCKS5 | `socks5.go` | Built-in SOCKS5 proxy |
+| DNS | `dns.go` | DNS-over-SOVA with caching |
 
-### AI Adapter (`common/ai.go`)
-- Network monitoring
-- Adaptive transport switching
-- Event-based decision making
+---
 
-### Transports (`common/*_transport.go`)
-- Web Mirror Mode: Custom TLS handshake
-- QUIC: Cloud-resistant UDP protocol
-- WebSocket: CDN-compatible tunneling
+## Code Style
 
-## Security Considerations
+- Follow standard Go conventions (`gofmt`)
+- Add tests for new features
+- Document exported functions and types
+- Keep imports organized (stdlib, external, internal)
 
-- Master key is server-only and generated at init
-- Session keys derived per-connection using HMAC-SHA256
-- All traffic encrypted with AES-GCM
-- Zero-Knowledge Proof for authentication
-- Post-quantum ready with Kyber/Dilithium
+---
 
 ## Issue Reporting
 
-Report security issues to: security@sova.io
-Report bugs on GitHub issues with:
-- Go version
+Report bugs via **GitHub Issues**: https://github.com/IvanChernykh/SOVA/issues
+
+Include:
+- Go version (`go version`)
 - OS and architecture
 - Error logs or stack trace
 - Steps to reproduce
 
+**Security vulnerabilities**: use [GitHub Security Advisories](https://github.com/IvanChernykh/SOVA/security/advisories/new) (not public issues).
+
+---
+
 ## Pull Requests
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit PR with description
-6. Ensure CI/CD passes
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Make changes and add tests
+4. Run `go test -v ./...` to verify
+5. Submit PR with clear description
+6. Wait for review
+
+---
 
 ## License
 
-SOVA Protocol is licensed under the MIT License - see [LICENSE](LICENSE) file.
+MIT License — see [LICENSE](LICENSE).

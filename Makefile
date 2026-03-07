@@ -1,7 +1,7 @@
 .PHONY: build build-all build-linux build-windows build-macos build-android build-ios clean test install-deps release
 
 # Version
-VERSION := v1.0.0
+VERSION := v2.0.0
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 

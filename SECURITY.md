@@ -1,109 +1,95 @@
 # Security Policy
 
-## Reporting Security Vulnerabilities
+## Reporting Vulnerabilities
 
-If you discover a security vulnerability in SOVA Protocol, please email **security@sova.io** with the following information:
+If you discover a security vulnerability in SOVA Protocol, please report it through **GitHub Security Advisories**:
 
-1. **Description**: A clear description of the vulnerability
-2. **Location**: Which component(s) are affected (server, client, crypto, transport, etc.)
-3. **Steps to Reproduce**: How to reproduce or trigger the vulnerability
-4. **Impact**: The potential impact and severity
-5. **Suggested Fix** (optional): Any ideas on how to fix it
+https://github.com/IvanChernykh/SOVA/security/advisories/new
 
-**Do not open public GitHub issues for security vulnerabilities.** We will acknowledge your report within 48 hours and work on a fix.
+**Do not open public issues for security vulnerabilities.** Use the private advisory feature instead.
 
-## Security Considerations
+Include in your report:
+1. **Description** of the vulnerability
+2. **Affected component** (server, client, crypto, transport, etc.)
+3. **Steps to reproduce**
+4. **Potential impact**
+5. **Suggested fix** (optional)
 
-### Master Key Security
-- The SOVA server generates and securely stores a master key at initialization
-- This key is used to derive session keys for each client connection
-- **The master key should be:**
-  - Backed up in a secure, encrypted location
-  - Rotated periodically (recommended: every 90 days)
-  - Never transmitted over the network
-  - Only accessible to the server process
+We will acknowledge your report within 72 hours and work on a fix.
 
-### Key Rotation
-To rotate the master key:
-```bash
-sova keygen --rotate
-```
-This will create a new master key and invalidate all existing session keys, requiring clients to re-authenticate.
+---
 
-### Cryptographic Algorithms
-- **Symmetric**: AES-256-GCM, ChaCha20-Poly1305
-- **Asymmetric**: Ed25519 (Schnorr signatures)
-- **Post-Quantum**: Kyber, Dilithium (via Cloudflare's `circl`)
-- **Hashing**: SHA-256, SHA-3
+## Cryptographic Architecture
 
-### ZKP Authentication
-SOVA uses Zero-Knowledge Proof for authentication:
-- Passwords are never transmitted in plain text
-- Authentication proofs are non-replayable (nonce-based)
-- Each session derives unique session keys
+### Symmetric Encryption
+- **AES-256-GCM** — primary session encryption
+- **ChaCha20-Poly1305** — alternative AEAD cipher (XChaCha20 variant)
+- Session keys derived via HMAC-SHA256 from master key + per-connection nonce
 
-### Obfuscation
-- Dynamic packet morphing to avoid pattern matching
-- Timing jitter to prevent fingerprinting
-- SNI rotation from a curated list
-- Custom TLS handshake variations
+### Post-Quantum Cryptography
+- **Kyber1024** (KEM) — key encapsulation via Cloudflare `circl`
+- **Dilithium mode5** (signatures) — post-quantum digital signatures via `circl`
+- Both algorithms are NIST PQC Round 3 finalists
 
-## Compliance and Audits
+### Authentication
+- **Zero-Knowledge Proof** on Ed25519 (Schnorr-like)
+- Passwords never transmitted — only proofs
+- Nonce-based challenge-response (non-replayable)
 
-SOVA undergoes regular security audits:
-- Monthly automated vulnerability scanning
-- Quarterly manual code reviews
-- Annual third-party security audit
+### Obfuscation (Stealth Engine)
+- Traffic mimicry (Chrome, YouTube, Cloud API profiles)
+- Adaptive timing jitter (Box-Muller distribution)
+- Intelligent packet padding to standard HTTP sizes
+- Decoy traffic generation
+- TLS fingerprint masking
+- SNI rotation
 
-## Responsible Disclosure
+---
 
-We appreciate security researchers who responsibly disclose vulnerabilities. Coordinated disclosure timeline:
-- **Day 0**: Vulnerability report received
-- **Day 3**: Initial triage and acknowledgment
-- **Day 14**: Fix development and testing
-- **Day 21**: Public disclosure and patch release
+## Master Key Security
 
-## Security Best Practices for Users
+The server generates a 256-bit master key at initialization. This key:
+- Derives unique session keys per connection
+- **Must never** be transmitted over the network
+- Should be backed up in a secure location
+- Recommended rotation: every 90 days
 
-1. **Keep SOVA Updated**: Always run the latest version
-   ```bash
-   sova install --update
-   ```
+---
 
-2. **Monitor Connections**: Check active proxy connections
-   ```bash
-   sova status
-   ```
+## Security Best Practices
 
-3. **Use Strong Passwords**: Credentials should be:
-   - At least 16 characters
-   - Mix of uppercase, lowercase, numbers, and symbols
-   - Unique for each user
+1. **Keep updated** — always run the latest version from [Releases](https://github.com/IvanChernykh/SOVA/releases)
+2. **Strong passwords** — at least 16 characters, mixed case + numbers + symbols
+3. **Monitor connections** — use the dashboard at `http://localhost:8080`
+4. **Firewall** — restrict API port access to trusted networks
+5. **TLS certificates** — verify certificate fingerprints out-of-band
 
-4. **Firewall Rules**: Restrict API access to trusted networks
-   ```bash
-   # Allow only localhost and internal network
-   iptables -A INPUT -p tcp -d localhost -j ACCEPT
-   iptables -A INPUT -p tcp -s 192.168.1.0/24 -j ACCEPT
-   iptables -P INPUT DROP
-   ```
+---
 
-5. **TLS Certificates**: SOVA uses self-signed certificates for Web Mirror Mode
-   - Verify certificate fingerprints via out-of-band channels
-   - Certificate pinning is automatic in the client
+## Known Security Considerations
 
-## Bug Bounty
+| Item | Status | Note |
+|---|---|---|
+| `InsecureSkipVerify` in transports | Documented | Required for custom handshake; server identity verified via PQ keys |
+| Self-signed TLS certificates | By design | Certificate pinning via JSON config |
+| Rate limiting | Implemented | Configurable per-IP rate limiter in middleware |
+| Input validation | Implemented | All API inputs validated and sanitized |
 
-We offer a bug bounty program for disclosed vulnerabilities:
-- **Critical (RCE, Key Leakage)**: $5,000
-- **High (Authentication Bypass)**: $2,000
-- **Medium (Information Disclosure)**: $500
-- **Low (DoS, Minor Logic Flaw)**: $100
+---
 
-Eligibility: First reporter of an unpatched vulnerability, following responsible disclosure.
+## Responsible Disclosure Timeline
 
-## Security Contact
+- **Day 0** — Report received
+- **Day 3** — Acknowledgment
+- **Day 14** — Fix developed and tested
+- **Day 21** — Patch release published
 
-📧 security@sova.io  
-🔗 https://github.com/IvanChernykh/SOVA  
-📋 Security advisories: https://github.com/IvanChernykh/SOVA/security/advisories
+---
+
+## Contact
+
+- **Security advisories**: https://github.com/IvanChernykh/SOVA/security/advisories
+- **Issues (non-security)**: https://github.com/IvanChernykh/SOVA/issues
+- **Repository**: https://github.com/IvanChernykh/SOVA
+
+SOVA is a free, open-source project. No paid support or bug bounties — we rely on the community.

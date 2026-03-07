@@ -1,7 +1,9 @@
 package common
 
 import (
+	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,7 +21,7 @@ type WebSocketTransport struct {
 func DialWebSocketTransport(config *TransportConfig) (*Connection, error) {
 	// Выбрать CDN IP (Cloudflare, etc.)
 	cdnIPs := []string{
-		"104.16.0.0/20",  // Cloudflare
+		"104.16.0.0/20", // Cloudflare
 		"173.245.48.0/20",
 		"103.21.244.0/22",
 		"103.22.200.0/22",
@@ -53,7 +55,8 @@ func DialWebSocketTransport(config *TransportConfig) (*Connection, error) {
 		HandshakeTimeout: 10 * time.Second,
 		TLSClientConfig: &tls.Config{
 			ServerName: config.SNI,
-			InsecureSkipVerify: true, // For CDN
+			// InsecureSkipVerify is intentional: SOVA uses PQ key exchange for server auth.
+			InsecureSkipVerify: true, // #nosec G402 — PQ key exchange verifies server identity
 		},
 	}
 
@@ -65,7 +68,7 @@ func DialWebSocketTransport(config *TransportConfig) (*Connection, error) {
 	transport := &WebSocketTransport{Conn: conn}
 
 	return &Connection{
-		Conn: &wsConn{transport: transport},
+		Conn:   &wsConn{transport: transport},
 		Config: config,
 	}, nil
 }

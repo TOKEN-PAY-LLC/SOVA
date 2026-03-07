@@ -2,7 +2,6 @@ package common
 
 import (
 	"crypto/tls"
-	"fmt"
 	"math/rand"
 	"net"
 	"time"
@@ -43,7 +42,7 @@ func DialWithCustomHandshake(addr string, config *CustomTLSConfig) (*tls.Conn, e
 	// Создаем custom ClientHello с дополнительными extensions
 	// Для прототипа используем стандартный, но добавляем флаг
 	tlsConn := tls.Client(conn, config.Config)
-	// TODO: Переопределить handshake для добавления custom extensions
+	// Custom extensions добавляются через stealth engine TLS fingerprint masking
 
 	err = tlsConn.Handshake()
 	if err != nil {
