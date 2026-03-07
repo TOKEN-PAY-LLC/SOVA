@@ -1,15 +1,15 @@
 # Release Notes
 
-## v2.0.0 — March 2026
+## v1.0.0 — March 2026
 
 ```
     ,___,
-    {o,o}    SOVA Protocol v2.0.0
-    /)  )    Major Release
+    {o,o}    SOVA Protocol v1.0.0
+    /)  )    Production Release
     -"  "-
 ```
 
-### New in v2.0.0
+### New in v1.0.0
 
 #### Traffic Acceleration
 - **Gzip compression** — automatic traffic compression with intelligent threshold
