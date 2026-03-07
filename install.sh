@@ -40,25 +40,25 @@ print_banner() {
         animate_owl 2>/dev/null || true
     fi
     echo -e "${PURPLE}${BOLD}"
-    echo "  ╔════════════════════════════════════════════════════╗"
-    echo "  ║         ___________                               ║"
-    echo "  ║        /   /   \\   \\                              ║"
-    echo "  ║       |   | O   O |  |   S O V A  Protocol       ║"
-    echo "  ║       |   |   V   |  |   v${VERSION}                    ║"
-    echo "  ║        \\   \\_____/   /                            ║"
-    echo "  ║      // \\___________/ \\\\                          ║"
-    echo "  ║                                                   ║"
-    echo "  ║   AI-Powered  |  Post-Quantum  |  Free & Open    ║"
-    echo "  ╚════════════════════════════════════════════════════╝"
+    echo "  +====================================================+"
+    echo "  |         ___________                                 |"
+    echo "  |        /   /   \\   \\                                |"
+    echo "  |       |   | O   O |  |   S O V A  Protocol         |"
+    echo "  |       |   |   V   |  |   v${VERSION}                      |"
+    echo "  |        \\   \\_____/   /                              |"
+    echo "  |      // \\___________/ \\\\                            |"
+    echo "  |                                                     |"
+    echo "  |   AI-Powered  |  Post-Quantum  |  Free & Open      |"
+    echo "  +====================================================+"
     echo -e "${RESET}"
     echo -e "${CYAN}  github.com/IvanChernykh/SOVA${RESET}"
     echo ""
 }
 
-log_info()  { echo -e "${CYAN}  ▸ $1${RESET}"; }
-log_ok()    { echo -e "${GREEN}  ✓ $1${RESET}"; }
-log_warn()  { echo -e "${YELLOW}  ⚠ $1${RESET}"; }
-log_error() { echo -e "${RED}  ✗ $1${RESET}"; }
+log_info()  { echo -e "${CYAN}  [..] $1${RESET}"; }
+log_ok()    { echo -e "${GREEN}  [OK] $1${RESET}"; }
+log_warn()  { echo -e "${YELLOW}  [!!] $1${RESET}"; }
+log_error() { echo -e "${RED}  [XX] $1${RESET}"; }
 
 detect_platform() {
     ARCH=$(uname -m)
@@ -342,9 +342,9 @@ generate_config
 setup_systemd
 
 echo ""
-echo -e "${PURPLE}${BOLD}  ╔════════════════════════════════════════════════════╗${RESET}"
-echo -e "${PURPLE}${BOLD}  ║  SOVA Protocol v${VERSION} installed successfully!       ║${RESET}"
-echo -e "${PURPLE}${BOLD}  ╚════════════════════════════════════════════════════╝${RESET}"
+echo -e "${PURPLE}${BOLD}  +====================================================+${RESET}"
+echo -e "${PURPLE}${BOLD}  |  SOVA Protocol v${VERSION} installed successfully!         |${RESET}"
+echo -e "${PURPLE}${BOLD}  +====================================================+${RESET}"
 echo ""
 log_info "Client:     sova                     (SOCKS5 tunnel)"
 log_info "Server:     sova-server              (relay server)"
