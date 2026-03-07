@@ -98,7 +98,11 @@ Detects devices without internet:
 - **Zero Dependency**: Pre-compiled static binaries; no Go, Python, or runtime required
 - **Single Command Install**: 
   ```bash
+  # Linux/macOS
   curl -sSL https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.sh | bash
+  
+  # Windows PowerShell
+  Invoke-WebRequest -Uri https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.ps1 -OutFile install.ps1; .\install.ps1
   ```
 - **Auto-Platform Detection**: Installation script detects OS and architecture
 - **Service Management**: Automatic daemon/service setup on installation
@@ -185,14 +189,23 @@ Test coverage includes:
 
 #### Install Server
 ```bash
+# Linux/macOS
 curl -sSL https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.sh | bash
+sova install  # Initialize and generate keys
+
+# Windows PowerShell
+Invoke-WebRequest -Uri https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.ps1 -OutFile install.ps1; .\install.ps1
 sova install  # Initialize and generate keys
 ```
 
 #### Install Client
 ```bash
-# On client machine
+# On client machine - Linux/macOS
 curl -sSL https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.sh | bash
+sova connect <json_config>
+
+# On client machine - Windows PowerShell
+Invoke-WebRequest -Uri https://github.com/IvanChernykh/SOVA/releases/download/v1.0.0/install.ps1 -OutFile install.ps1; .\install.ps1
 sova connect <json_config>
 ```
 
@@ -237,9 +250,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 ### 📞 Support
 
-- **Issues**: https://github.com/IvanChernykh/SOVA/issues
-- **Security**: security@sova.io
+- **Community Support**: https://github.com/IvanChernykh/SOVA/issues (free community support)
 - **Documentation**: https://github.com/IvanChernykh/SOVA#readme
+- **No Paid Support**: This is a free open-source project
 
 ### 📄 License
 
