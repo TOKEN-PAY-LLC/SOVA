@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# SOVA Protocol v1.0 - Autonomous Installer for Linux/macOS
+# SOVA Protocol v1.0.0 - Installer for Linux/macOS
 # No dependencies required except bash and curl/wget
 # Usage: curl -fsSL https://raw.githubusercontent.com/IvanChernykh/SOVA/main/install.sh | bash
 
 set -euo pipefail
 
 VERSION="1.0.0"
-BASE_URL="https://github.com/IvanChernykh/SOVA/releases/download/v${VERSION}"
+REPO_URL="https://github.com/IvanChernykh/SOVA"
+BASE_URL="${REPO_URL}/releases/download/v${VERSION}"
 INSTALL_DIR="/usr/local/bin"
-CONFIG_DIR="/etc/sova"
+CONFIG_DIR="${HOME}/.sova"
 DATA_DIR="/var/lib/sova"
 LOG_DIR="/var/log/sova"
 
@@ -23,45 +24,41 @@ RESET='\033[0m'
 BOLD='\033[1m'
 
 animate_owl() {
-    local frames=(
-        "    ,___,\n    {o,o}\n    /)  )\n    -\"  \"-"
-        "    ,___,\n    {O,O}\n    /)  )\n    -\"  \"-"
-        "    ,___,\n    {o,o}\n    /)  )\n    -\"  \"-"
-        "    ,___,\n    {-,-}\n    /)  )\n    -\"  \"-"
-        "    ,___,\n    {o,o}\n    /)  )\n    -\"  \"-"
-    )
+    local f1="         ___________\n        /   /   \\   \\\\\n       |   | O   O |  |\n       |   |   V   |  |\n        \\   \\_____/   /\n      // \\___________/ \\\\\\\\\n     //   |||||||||||   \\\\\\\\\n    ||    |||||||||||    ||\n           ||   ||\n          _||___||_"
+    local f2="         ___________\n        /   /   \\   \\\\\n       |   | *   * |  |\n       |   |   V   |  |\n        \\   \\_____/   /\n      // \\___________/ \\\\\\\\\n     //   |||||||||||   \\\\\\\\\n    ||    |||||||||||    ||\n           ||   ||\n          _||___||_"
+    local f3="         ___________\n        /   /   \\   \\\\\n       |   | O   O |  |\n       |   |   V   |  |\n        \\   \\_____/   /\n     /  \\___________/  \\\\\n    /    |||||||||||    \\\\\n   /     |||||||||||     \\\\\n           ||   ||\n          _||___||_"
+    local frames=("$f1" "$f2" "$f1" "$f3" "$f1")
     for frame in "${frames[@]}"; do
         echo -en "\033[2J\033[H"
-        echo -e "${PURPLE}"
-        echo -e "$frame"
-        echo -e "${RESET}"
-        sleep 0.15
+        echo -e "${PURPLE}${frame}${RESET}"
+        sleep 0.2
     done
 }
 
 print_banner() {
     if [ -t 1 ]; then
-        animate_owl
+        animate_owl 2>/dev/null || true
     fi
     echo -e "${PURPLE}${BOLD}"
-    echo "    ╔══════════════════════════════════════╗"
-    echo "    ║            ,___,                     ║"
-    echo "    ║            {o,o}    S O V A          ║"
-    echo "    ║            /)  )    Protocol v${VERSION}   ║"
-    echo '    ║            -"  "-                    ║'
-    echo "    ║                                      ║"
-    echo "    ║  Autonomous AI-Powered Anti-DPI      ║"
-    echo "    ║  Post-Quantum  |  100% Free & Open   ║"
-    echo "    ╚══════════════════════════════════════╝"
+    echo "  ╔════════════════════════════════════════════════════╗"
+    echo "  ║         ___________                               ║"
+    echo "  ║        /   /   \\   \\                              ║"
+    echo "  ║       |   | O   O |  |   S O V A  Protocol       ║"
+    echo "  ║       |   |   V   |  |   v${VERSION}                    ║"
+    echo "  ║        \\   \\_____/   /                            ║"
+    echo "  ║      // \\___________/ \\\\                          ║"
+    echo "  ║                                                   ║"
+    echo "  ║   AI-Powered  |  Post-Quantum  |  Free & Open    ║"
+    echo "  ╚════════════════════════════════════════════════════╝"
     echo -e "${RESET}"
     echo -e "${CYAN}  github.com/IvanChernykh/SOVA${RESET}"
     echo ""
 }
 
-log_info()  { echo -e "${CYAN}  \u25b8 $1${RESET}"; }
-log_ok()    { echo -e "${GREEN}  \u2713 $1${RESET}"; }
-log_warn()  { echo -e "${YELLOW}  \u26a0 $1${RESET}"; }
-log_error() { echo -e "${RED}  \u2717 $1${RESET}"; }
+log_info()  { echo -e "${CYAN}  ▸ $1${RESET}"; }
+log_ok()    { echo -e "${GREEN}  ✓ $1${RESET}"; }
+log_warn()  { echo -e "${YELLOW}  ⚠ $1${RESET}"; }
+log_error() { echo -e "${RED}  ✗ $1${RESET}"; }
 
 detect_platform() {
     ARCH=$(uname -m)
@@ -99,18 +96,22 @@ check_root() {
 download_binary() {
     local component=$1
     local url="${BASE_URL}/sova-${component}-${OS}-${ARCH}"
-    local dest="${INSTALL_DIR}/sova-${component}"
+    if [ "$component" = "client" ]; then
+        local dest="${INSTALL_DIR}/sova"
+    else
+        local dest="${INSTALL_DIR}/sova-server"
+    fi
 
     log_info "Downloading sova-${component}..."
 
     if command -v curl &>/dev/null; then
         $SUDO curl -fsSL -o "$dest" "$url" 2>/dev/null || {
-            log_warn "Download failed from release URL, building from source if Go available"
+            log_warn "Download failed, will try build from source"
             return 1
         }
     elif command -v wget &>/dev/null; then
         $SUDO wget -q -O "$dest" "$url" 2>/dev/null || {
-            log_warn "Download failed, trying build from source"
+            log_warn "Download failed, will try build from source"
             return 1
         }
     else
@@ -123,65 +124,148 @@ download_binary() {
     return 0
 }
 
+find_source_dir() {
+    # 1. Check if script is in the repo
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)" || true
+    if [ -n "$script_dir" ] && [ -f "${script_dir}/go.mod" ]; then
+        echo "$script_dir"
+        return 0
+    fi
+    # 2. Check common locations
+    for dir in "$HOME/SOVA" "$HOME/Desktop/SOVA" "$HOME/Documents/SOVA" "/opt/SOVA"; do
+        if [ -f "${dir}/go.mod" ]; then
+            echo "$dir"
+            return 0
+        fi
+    done
+    return 1
+}
+
 build_from_source() {
     if ! command -v go &>/dev/null; then
         log_error "Go is not installed. Install Go 1.21+ or download pre-built binaries."
         exit 1
     fi
 
-    GO_VERSION=$(go version | grep -oP '\d+\.\d+')
-    log_info "Building from source with Go ${GO_VERSION}..."
+    local go_ver
+    go_ver=$(go version | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    log_info "Building from source with Go ${go_ver}..."
 
-    # Find the source directory
-    SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-    if [ -f "${SCRIPT_DIR}/go.mod" ]; then
-        cd "$SCRIPT_DIR"
+    local src_dir=""
+    local cloned=false
+
+    src_dir=$(find_source_dir) || true
+
+    if [ -z "$src_dir" ]; then
+        # 3. Clone the repo
+        if command -v git &>/dev/null; then
+            log_info "Cloning SOVA repository..."
+            src_dir=$(mktemp -d)
+            if git clone --depth 1 --branch "v${VERSION}" "${REPO_URL}.git" "$src_dir" 2>/dev/null; then
+                cloned=true
+                log_ok "Repository cloned"
+            elif git clone --depth 1 "${REPO_URL}.git" "$src_dir" 2>/dev/null; then
+                cloned=true
+                log_ok "Repository cloned (latest)"
+            else
+                log_error "Failed to clone repository"
+                exit 1
+            fi
+        else
+            log_error "Cannot find SOVA source code and git is not available."
+            log_error "Either clone the repo manually or install git:"
+            log_error "  git clone ${REPO_URL}.git"
+            log_error "  cd SOVA && sudo ./install.sh"
+            exit 1
+        fi
     else
-        log_error "Cannot find SOVA source code. Clone the repo first."
-        exit 1
+        log_info "Found source at ${src_dir}"
     fi
 
+    cd "$src_dir"
     go mod download
+
     log_info "Building server..."
-    go build -ldflags "-s -w -X main.version=${VERSION}" -o "${INSTALL_DIR}/sova-server" ./server/
+    $SUDO go build -ldflags "-s -w -X main.Version=v${VERSION}" -o "${INSTALL_DIR}/sova-server" ./server/
     log_ok "Built sova-server"
 
     log_info "Building client..."
-    go build -ldflags "-s -w -X main.version=${VERSION}" -o "${INSTALL_DIR}/sova" ./client/
+    $SUDO go build -ldflags "-s -w -X main.Version=v${VERSION}" -o "${INSTALL_DIR}/sova" ./client/
     log_ok "Built sova client"
+
+    if [ "$cloned" = true ] && [ -n "$src_dir" ]; then
+        rm -rf "$src_dir"
+    fi
 }
 
 setup_directories() {
     log_info "Creating directories..."
-    $SUDO mkdir -p "$CONFIG_DIR" "$DATA_DIR" "$LOG_DIR"
-    $SUDO chmod 750 "$CONFIG_DIR" "$DATA_DIR"
+    mkdir -p "$CONFIG_DIR" "$CONFIG_DIR/profiles" "$CONFIG_DIR/logs"
+    $SUDO mkdir -p "$DATA_DIR" "$LOG_DIR"
     log_ok "Directories created"
 }
 
 generate_config() {
-    if [ -f "${CONFIG_DIR}/config.json" ]; then
-        log_warn "Config already exists at ${CONFIG_DIR}/config.json, skipping"
+    local config_file="${CONFIG_DIR}/config.json"
+    if [ -f "$config_file" ]; then
+        log_warn "Config already exists at ${config_file}, skipping"
         return
     fi
 
     log_info "Generating default configuration..."
-    $SUDO tee "${CONFIG_DIR}/config.json" > /dev/null << 'EOF'
+    cat > "$config_file" << 'EOF'
 {
-  "port": 443,
+  "mode": "local",
+  "listen_addr": "127.0.0.1",
+  "listen_port": 1080,
+  "server_addr": "",
+  "server_port": 443,
+  "encryption": {
+    "algorithm": "aes-256-gcm",
+    "pq_enabled": true,
+    "zkp_enabled": true
+  },
+  "stealth": {
+    "enabled": true,
+    "profile": "chrome",
+    "jitter_ms": 50,
+    "padding_enabled": true,
+    "decoy_enabled": false,
+    "tls_fingerprint": "chrome"
+  },
   "api": {
     "enabled": true,
-    "port": 8080
+    "port": 8080,
+    "host": "127.0.0.1",
+    "auth_key": ""
   },
-  "security": {
-    "enable_pq": true,
-    "allowed_users": [],
-    "rate_limit": 100
+  "dns": {
+    "enabled": false,
+    "port": 5353,
+    "upstream": "8.8.8.8:53"
   },
-  "transports": ["web_mirror", "cloud_carrier", "shadow_websocket"],
-  "sni_list": ["sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"]
+  "log_level": "info",
+  "log_file": "",
+  "features": {
+    "compression": true,
+    "connection_pool": true,
+    "smart_routing": true,
+    "mesh_network": false,
+    "offline_first": false,
+    "ai_adapter": true,
+    "dashboard": true,
+    "auto_proxy": false
+  },
+  "transport": {
+    "mode": "auto",
+    "sni_list": ["www.google.com", "cdn.cloudflare.com", "aws.amazon.com"],
+    "cdn_list": ["cdn.cloudflare.com", "fastly.net"],
+    "fallback": true
+  }
 }
 EOF
-    log_ok "Configuration generated at ${CONFIG_DIR}/config.json"
+    log_ok "Configuration at ${config_file}"
 }
 
 setup_systemd() {
@@ -230,10 +314,18 @@ generate_config
 setup_systemd
 
 echo ""
-log_ok "SOVA Protocol v${VERSION} installed successfully!"
+echo -e "${PURPLE}${BOLD}  ╔════════════════════════════════════════════════════╗${RESET}"
+echo -e "${PURPLE}${BOLD}  ║  SOVA Protocol v${VERSION} installed successfully!       ║${RESET}"
+echo -e "${PURPLE}${BOLD}  ╚════════════════════════════════════════════════════╝${RESET}"
 echo ""
-log_info "Dashboard:  http://localhost:8080"
-log_info "Server:     sova-server"
-log_info "Client:     sova connect <config>"
+log_info "Client:     sova                     (SOCKS5 tunnel)"
+log_info "Server:     sova-server              (relay server)"
+log_info "API:        http://127.0.0.1:8080/api/"
 log_info "Config:     ${CONFIG_DIR}/config.json"
+log_info "Proxy:      SOCKS5 127.0.0.1:1080"
+echo ""
+log_info "Quick start:"
+echo "  sova                               # Start tunnel"
+echo "  sova connect server.example.com    # Remote server"
+echo "  sova help                          # All commands"
 echo ""

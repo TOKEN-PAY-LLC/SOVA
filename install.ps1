@@ -1,12 +1,13 @@
-# SOVA Protocol v1.0 - Windows Installer
+# SOVA Protocol v1.0.0 - Windows Installer
 # Run as Administrator: powershell -ExecutionPolicy Bypass -File install.ps1
 #Requires -RunAsAdministrator
 
 $ErrorActionPreference = "Stop"
 $Version = "1.0.0"
-$BaseURL = "https://github.com/IvanChernykh/SOVA/releases/download/v$Version"
+$RepoURL = "https://github.com/IvanChernykh/SOVA"
+$BaseURL = "$RepoURL/releases/download/v$Version"
 $InstallDir = "$env:ProgramFiles\SOVA"
-$ConfigDir = "$env:ProgramData\SOVA"
+$ConfigDir = "$env:USERPROFILE\.sova"
 
 function Write-Purple { param($msg) Write-Host $msg -ForegroundColor Magenta }
 function Write-Ok     { param($msg) Write-Host "  [OK] $msg" -ForegroundColor Green }
@@ -15,34 +16,65 @@ function Write-Warn   { param($msg) Write-Host "  [!!] $msg" -ForegroundColor Ye
 function Write-Err    { param($msg) Write-Host "  [XX] $msg" -ForegroundColor Red }
 
 function Show-AnimatedOwl {
-    $frames = @(
-        "    ,___,`n    {o,o}`n    /)  )`n    -`"  `"-",
-        "    ,___,`n    {O,O}`n    /)  )`n    -`"  `"-",
-        "    ,___,`n    {o,o}`n    /)  )`n    -`"  `"-",
-        "    ,___,`n    {-,-}`n    /)  )`n    -`"  `"-",
-        "    ,___,`n    {o,o}`n    /)  )`n    -`"  `"-"
-    )
+    $frame1 = @"
+         ___________
+        /   /   \   \
+       |   | O   O |  |
+       |   |   V   |  |
+        \   \_____/   /
+      // \___________/ \\
+     //   |||||||||||   \\
+    ||    |||||||||||    ||
+           ||   ||
+          _||___||_
+"@
+    $frame2 = @"
+         ___________
+        /   /   \   \
+       |   | *   * |  |
+       |   |   V   |  |
+        \   \_____/   /
+      // \___________/ \\
+     //   |||||||||||   \\
+    ||    |||||||||||    ||
+           ||   ||
+          _||___||_
+"@
+    $frame3 = @"
+         ___________
+        /   /   \   \
+       |   | O   O |  |
+       |   |   V   |  |
+        \   \_____/   /
+     /  \___________/  \
+    /    |||||||||||    \
+   /     |||||||||||     \
+           ||   ||
+          _||___||_
+"@
+    $frames = @($frame1, $frame2, $frame1, $frame3, $frame1)
     foreach ($frame in $frames) {
         Clear-Host
         Write-Host $frame -ForegroundColor Magenta
-        Start-Sleep -Milliseconds 150
+        Start-Sleep -Milliseconds 200
     }
 }
 
 function Show-Banner {
     if ([Environment]::UserInteractive) {
-        Show-AnimatedOwl
+        try { Show-AnimatedOwl } catch {}
     }
     Write-Host ""
-    Write-Host "    +========================================+" -ForegroundColor Magenta
-    Write-Host "    |            ,___,                       |" -ForegroundColor Magenta
-    Write-Host "    |            {o,o}    S O V A            |" -ForegroundColor Magenta
-    Write-Host "    |            /)  )    Protocol v$Version      |" -ForegroundColor Magenta
-    Write-Host '    |            -"  "-                      |' -ForegroundColor Magenta
-    Write-Host "    |                                        |" -ForegroundColor Magenta
-    Write-Host "    |  Autonomous AI-Powered Anti-DPI        |" -ForegroundColor Magenta
-    Write-Host "    |  Post-Quantum  |  100% Free & Open     |" -ForegroundColor Magenta
-    Write-Host "    +========================================+" -ForegroundColor Magenta
+    Write-Purple "  ╔════════════════════════════════════════════════════╗"
+    Write-Purple "  ║         ___________                               ║"
+    Write-Purple "  ║        /   /   \   \                              ║"
+    Write-Purple "  ║       |   | O   O |  |   S O V A  Protocol       ║"
+    Write-Purple "  ║       |   |   V   |  |   v$Version                    ║"
+    Write-Purple "  ║        \   \_____/   /                            ║"
+    Write-Purple "  ║      // \___________/ \\                          ║"
+    Write-Purple "  ║                                                   ║"
+    Write-Purple "  ║   AI-Powered  |  Post-Quantum  |  Free & Open    ║"
+    Write-Purple "  ╚════════════════════════════════════════════════════╝"
     Write-Host ""
     Write-Host "  github.com/IvanChernykh/SOVA" -ForegroundColor Cyan
     Write-Host ""
@@ -65,6 +97,7 @@ function Install-Directories {
     Write-Info "Creating directories..."
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+    New-Item -ItemType Directory -Force -Path "$ConfigDir\profiles" | Out-Null
     New-Item -ItemType Directory -Force -Path "$ConfigDir\logs" | Out-Null
     Write-Ok "Directories created"
 }
@@ -72,7 +105,11 @@ function Install-Directories {
 function Install-Binary {
     param($Component, $Arch)
     $url = "$BaseURL/sova-$Component-windows-$Arch.exe"
-    $dest = "$InstallDir\sova-$Component.exe"
+    if ($Component -eq "client") {
+        $dest = "$InstallDir\sova.exe"
+    } else {
+        $dest = "$InstallDir\sova-server.exe"
+    }
 
     Write-Info "Downloading sova-$Component..."
     try {
@@ -86,6 +123,25 @@ function Install-Binary {
     }
 }
 
+function Find-SourceDir {
+    # 1. Check if script is in the repo (run from local clone)
+    $candidates = @()
+    if ($PSScriptRoot -and (Test-Path "$PSScriptRoot\go.mod")) {
+        return $PSScriptRoot
+    }
+    # 2. Check common locations
+    $candidates += "$env:USERPROFILE\Desktop\SOVA"
+    $candidates += "$env:USERPROFILE\SOVA"
+    $candidates += "$env:USERPROFILE\Documents\SOVA"
+    $candidates += "C:\SOVA"
+    foreach ($dir in $candidates) {
+        if (Test-Path "$dir\go.mod") {
+            return $dir
+        }
+    }
+    return $null
+}
+
 function Build-FromSource {
     $goCmd = Get-Command go -ErrorAction SilentlyContinue
     if (-not $goCmd) {
@@ -96,27 +152,55 @@ function Build-FromSource {
     $goVer = (go version) -replace 'go version go', '' -replace ' .*', ''
     Write-Info "Building from source with Go $goVer..."
 
-    $scriptDir = Split-Path -Parent $MyInvocation.ScriptName
-    if (-not (Test-Path "$scriptDir\go.mod")) {
-        $scriptDir = $PSScriptRoot
-    }
-    if (-not (Test-Path "$scriptDir\go.mod")) {
-        Write-Err "Cannot find SOVA source code"
-        exit 1
+    $srcDir = Find-SourceDir
+    $cloned = $false
+
+    if (-not $srcDir) {
+        # 3. Clone the repo to temp directory
+        $gitCmd = Get-Command git -ErrorAction SilentlyContinue
+        if ($gitCmd) {
+            Write-Info "Cloning SOVA repository..."
+            $srcDir = "$env:TEMP\sova-build-$([System.IO.Path]::GetRandomFileName())"
+            git clone --depth 1 --branch "v$Version" "$RepoURL.git" $srcDir 2>&1 | Out-Null
+            if (-not (Test-Path "$srcDir\go.mod")) {
+                git clone --depth 1 "$RepoURL.git" $srcDir 2>&1 | Out-Null
+            }
+            if (Test-Path "$srcDir\go.mod") {
+                $cloned = $true
+                Write-Ok "Repository cloned to $srcDir"
+            } else {
+                Write-Err "Failed to clone repository"
+                exit 1
+            }
+        } else {
+            Write-Err "Cannot find SOVA source code and git is not available."
+            Write-Err "Either clone the repo manually or install git:"
+            Write-Err "  git clone $RepoURL.git"
+            Write-Err "  cd SOVA && .\install.ps1"
+            exit 1
+        }
+    } else {
+        Write-Info "Found source at $srcDir"
     }
 
-    Push-Location $scriptDir
+    Push-Location $srcDir
     try {
-        go mod download
+        go mod download 2>&1 | Out-Null
         Write-Info "Building server..."
-        go build -ldflags "-s -w" -o "$InstallDir\sova-server.exe" ./server/
+        go build -ldflags "-s -w -X main.Version=v$Version" -o "$InstallDir\sova-server.exe" ./server/
         Write-Ok "Built sova-server.exe"
 
         Write-Info "Building client..."
-        go build -ldflags "-s -w" -o "$InstallDir\sova.exe" ./client/
+        go build -ldflags "-s -w -X main.Version=v$Version" -o "$InstallDir\sova.exe" ./client/
         Write-Ok "Built sova.exe"
+    } catch {
+        Write-Err "Build failed: $($_.Exception.Message)"
+        exit 1
     } finally {
         Pop-Location
+        if ($cloned -and $srcDir) {
+            Remove-Item -Recurse -Force $srcDir -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -128,22 +212,57 @@ function Install-Config {
     }
 
     Write-Info "Generating default configuration..."
-    @'
+    @"
 {
-  "port": 443,
+  "mode": "local",
+  "listen_addr": "127.0.0.1",
+  "listen_port": 1080,
+  "server_addr": "",
+  "server_port": 443,
+  "encryption": {
+    "algorithm": "aes-256-gcm",
+    "pq_enabled": true,
+    "zkp_enabled": true
+  },
+  "stealth": {
+    "enabled": true,
+    "profile": "chrome",
+    "jitter_ms": 50,
+    "padding_enabled": true,
+    "decoy_enabled": false,
+    "tls_fingerprint": "chrome"
+  },
   "api": {
     "enabled": true,
-    "port": 8080
+    "port": 8080,
+    "host": "127.0.0.1",
+    "auth_key": ""
   },
-  "security": {
-    "enable_pq": true,
-    "allowed_users": [],
-    "rate_limit": 100
+  "dns": {
+    "enabled": false,
+    "port": 5353,
+    "upstream": "8.8.8.8:53"
   },
-  "transports": ["web_mirror", "cloud_carrier", "shadow_websocket"],
-  "sni_list": ["sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"]
+  "log_level": "info",
+  "log_file": "",
+  "features": {
+    "compression": true,
+    "connection_pool": true,
+    "smart_routing": true,
+    "mesh_network": false,
+    "offline_first": false,
+    "ai_adapter": true,
+    "dashboard": true,
+    "auto_proxy": false
+  },
+  "transport": {
+    "mode": "auto",
+    "sni_list": ["www.google.com", "cdn.cloudflare.com", "aws.amazon.com"],
+    "cdn_list": ["cdn.cloudflare.com", "fastly.net"],
+    "fallback": true
+  }
 }
-'@ | Set-Content $configFile -Encoding UTF8
+"@ | Set-Content $configFile -Encoding UTF8
     Write-Ok "Configuration at $configFile"
 }
 
@@ -169,7 +288,7 @@ function Install-WindowsService {
         }
         New-Service -Name "SOVA" -BinaryPathName "$InstallDir\sova-server.exe" `
             -DisplayName "SOVA Protocol Server" `
-            -Description "Autonomous AI-Powered Protocol Server" `
+            -Description "SOVA Protocol - AI-Powered Post-Quantum Tunnel Server" `
             -StartupType Automatic | Out-Null
         Write-Ok "Windows service registered"
         Write-Info "Start with: Start-Service SOVA"
@@ -185,8 +304,9 @@ Write-Info "Platform: windows/$arch"
 
 Install-Directories
 
-$downloaded = (Install-Binary "server" $arch) -and (Install-Binary "client" $arch)
-if (-not $downloaded) {
+$serverOk = Install-Binary "server" $arch
+$clientOk = Install-Binary "client" $arch
+if (-not $serverOk -or -not $clientOk) {
     Write-Info "Falling back to build from source..."
     Build-FromSource
 }
@@ -196,10 +316,18 @@ Add-ToPath
 Install-WindowsService
 
 Write-Host ""
-Write-Ok "SOVA Protocol v$Version installed successfully!"
+Write-Purple "  ╔════════════════════════════════════════════════════╗"
+Write-Purple "  ║  SOVA Protocol v$Version installed successfully!       ║"
+Write-Purple "  ╚════════════════════════════════════════════════════╝"
 Write-Host ""
-Write-Info "Dashboard:  http://localhost:8080"
-Write-Info "Server:     sova-server.exe"
-Write-Info "Client:     sova connect <config>"
+Write-Info "Client:     sova                     (SOCKS5 tunnel)"
+Write-Info "Server:     sova-server              (relay server)"
+Write-Info "API:        http://127.0.0.1:8080/api/"
 Write-Info "Config:     $ConfigDir\config.json"
+Write-Info "Proxy:      SOCKS5 127.0.0.1:1080"
+Write-Host ""
+Write-Info "Quick start:"
+Write-Host "  sova                               # Start tunnel" -ForegroundColor White
+Write-Host "  sova connect server.example.com    # Remote server" -ForegroundColor White
+Write-Host "  sova help                          # All commands" -ForegroundColor White
 Write-Host ""
