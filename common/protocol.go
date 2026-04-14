@@ -192,6 +192,10 @@ func (sc *SOVAConn) SetWriteDeadline(t time.Time) error { return sc.conn.SetWrit
 func (sc *SOVAConn) RemoteAddr() net.Addr               { return sc.conn.RemoteAddr() }
 func (sc *SOVAConn) LocalAddr() net.Addr                { return sc.conn.LocalAddr() }
 
+// Read/Write — прямое чтение/запись в underlying conn (для net.Conn совместимости)
+func (sc *SOVAConn) Read(b []byte) (int, error)  { return sc.conn.Read(b) }
+func (sc *SOVAConn) Write(b []byte) (int, error) { return sc.conn.Write(b) }
+
 func secureRandByte() byte {
 	b := make([]byte, 1)
 	rand.Read(b)

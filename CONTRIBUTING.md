@@ -5,7 +5,7 @@
 ### Prerequisites
 - Go 1.21+
 - Git
-- Make (optional, for Makefile targets)
+- Make (optional)
 
 ### Clone and Build
 
@@ -13,28 +13,26 @@
 git clone https://github.com/IvanChernykh/SOVA.git
 cd SOVA
 go mod tidy
-go build ./server/
-go build ./client/
+go build ./...
 ```
 
-Or use Make:
+Optional Make targets:
 
 ```bash
-make build            # server + client for current OS
-make build-all        # all platforms (linux/windows/macos, amd64/arm64)
-make build-server     # server only
-make build-client     # client only
+make build
+make build-server
+make build-client
+make build-all
 ```
 
 ### Testing
 
 ```bash
-go test -v ./common/           # all tests (44+)
-go test -bench=. ./common/     # benchmarks
-make test                      # with coverage report
+go test -v ./common/
+go test -bench=. ./common/
 ```
 
-### Code Formatting
+### Formatting
 
 ```bash
 go fmt ./...
@@ -42,90 +40,88 @@ go fmt ./...
 
 ---
 
+## Architecture Focus
+
+Contributions should strengthen the native SOVA stack:
+
+- **SOVA Proxy** — local ingress for applications and browsers
+- **SOVA Protocol** — encrypted relay framing and handshake
+- **SOVA Relay** — target dialing, ACK flow, transport orchestration
+- **Stealth / AI** — DPI resistance, adaptation, traffic shaping
+- **Dashboard / CLI** — onboarding, status, UX, observability
+
+---
+
 ## Project Structure
 
-```
+```text
 SOVA/
-├── server/
-│   ├── main.go          # Server entry point, TLS listener, ZKP auth
-│   ├── api.go           # REST API endpoints
-│   ├── dashboard.go     # Web dashboard (purple theme)
-│   ├── config.go        # Configuration structs
-│   └── middleware.go     # Rate limiting, logging
-├── client/
-│   └── main.go          # Client CLI (connect, status, proxy)
-├── common/
-│   ├── crypto.go        # AES-GCM, ChaCha20, Kyber1024, Dilithium mode5
-│   ├── auth.go          # ZKP authentication, config encoding
-│   ├── transport.go     # Transport modes, adaptive switching
-│   ├── ai.go            # AI adapter for DPI evasion
-│   ├── accelerator.go   # Traffic compression, pooling, routing
-│   ├── stealth.go       # Traffic mimicry, jitter, padding, decoy
-│   ├── socks5.go        # SOCKS5 proxy server
-│   ├── dns.go           # DNS-over-SOVA resolver
-│   ├── ui.go            # Terminal UI (purple theme, owl)
-│   ├── quic_transport.go
-│   ├── websocket_transport.go
-│   ├── custom_handshake.go
-│   ├── offline_first.go
-│   └── *_test.go        # Tests for all modules
-├── plugin/
-│   └── xray_plugin.go   # Xray/Sing-Box/V2Ray integration
-├── install.sh           # Linux/macOS installer
-├── install.ps1          # Windows installer
-├── Makefile             # Build automation
-├── go.mod / go.sum      # Go modules
-└── *.md                 # Documentation
+├── server/              # Relay server, dashboard, API, middleware
+├── client/              # Interactive CLI and local SOVA Proxy control
+├── common/              # Shared protocol, crypto, config, UI, transports
+├── plugin/              # Reserved area for future integration adapters
+├── singbox-patch/       # Reference patch materials and build notes
+├── install.sh
+├── install.ps1
+├── Makefile
+└── *.md
 ```
 
----
+Key files to understand first:
 
-## Key Modules
-
-| Module | File | Description |
-|---|---|---|
-| Crypto | `crypto.go` | AES-256-GCM, ChaCha20, Kyber1024 KEM, Dilithium mode5 |
-| Auth | `auth.go` | Ed25519 ZKP, config encode/decode |
-| AI | `ai.go` | Event recording, strategy matching, adaptive switching |
-| Accelerator | `accelerator.go` | Gzip compression, connection pool, route optimizer |
-| Stealth | `stealth.go` | Traffic mimicry, jitter, padding, decoy generation |
-| Transport | `transport.go` | TLS/QUIC/WebSocket with AI-driven switching |
-| SOCKS5 | `socks5.go` | Built-in SOCKS5 proxy |
-| DNS | `dns.go` | DNS-over-SOVA with caching |
+- `common/sova_proxy.go`
+- `common/protocol.go`
+- `common/dpi.go`
+- `client/main.go`
+- `server/relay.go`
+- `server/api.go`
 
 ---
 
-## Code Style
+## Contribution Guidelines
 
-- Follow standard Go conventions (`gofmt`)
-- Add tests for new features
-- Document exported functions and types
-- Keep imports organized (stdlib, external, internal)
+- Follow standard Go conventions and keep code `gofmt`-clean.
+- Prefer native SOVA abstractions over adding third-party protocol dependencies.
+- Add or update tests when changing protocol, crypto, relay, or config logic.
+- Keep imports grouped and minimal.
+- Preserve product terminology: `SOVA Proxy`, `SOVA Protocol`, `SOVA VPN`.
 
 ---
 
-## Issue Reporting
+## Good Areas for Contribution
+
+- Protocol correctness and fuzzing
+- Transport resilience and performance
+- Dashboard / CLI polish
+- Config ergonomics and validation
+- Documentation for native SOVA integrations
+- SDK and share-link specification work
+
+---
+
+## Reporting Issues
 
 Report bugs via **GitHub Issues**: https://github.com/IvanChernykh/SOVA/issues
 
-Include:
-- Go version (`go version`)
-- OS and architecture
-- Error logs or stack trace
-- Steps to reproduce
+Useful information:
 
-**Security vulnerabilities**: use [GitHub Security Advisories](https://github.com/IvanChernykh/SOVA/security/advisories/new) (not public issues).
+- Go version
+- OS and architecture
+- SOVA version
+- logs / stack trace
+- exact reproduction steps
+
+Security issues should go through [GitHub Security Advisories](https://github.com/IvanChernykh/SOVA/security/advisories/new).
 
 ---
 
 ## Pull Requests
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Make changes and add tests
-4. Run `go test -v ./...` to verify
-5. Submit PR with clear description
-6. Wait for review
+1. Fork the repository.
+2. Create a feature branch.
+3. Make the change with tests where appropriate.
+4. Run `go build ./...` and relevant tests.
+5. Submit a focused PR with a clear description.
 
 ---
 

@@ -2,107 +2,103 @@
 
 ## Vision
 
-SOVA — самый быстрый, умный и невидимый протокол для свободного интернета. Бесплатный, с открытым кодом, управляемый сообществом.
+SOVA — автономная сеть нового поколения: собственный локальный прокси, собственный зашифрованный протокол, собственная серверная релейная модель и собственный UX-слой без обязательной зависимости от сторонних транспортов и брендов.
 
 ---
 
-## v1.0.1 ✅ [Released — March 2026] — Full Autonomy
+## v1.0.0 ✅ [Current Baseline — March 2026]
 
-- [x] **Flying purple owl animation** — 3-frame flight, sparkle trail, 256-color ANSI
-- [x] **18 REST API endpoints** — CORS, API key auth, profiles, logs, stats, encryption, stealth
-- [x] **15 toggleable modules** — PQ crypto, stealth, AI, mesh, DNS, compression, etc.
-- [x] **Configuration profiles** — save/load/switch via CLI and API
-- [x] Traffic acceleration (compression, pooling, route optimizer)
-- [x] Stealth engine (traffic mimicry, jitter, padding, decoy, TLS fingerprint)
-- [x] Web dashboard (purple theme, real-time stats)
-- [x] SOCKS5 proxy server (verified HTTP 200 through tunnel)
-- [x] DNS-over-SOVA resolver with configurable upstream
-- [x] Post-quantum crypto: Kyber1024 KEM + Dilithium mode5 (circl v1.3.7)
-- [x] Zero-Knowledge Proof authentication (Ed25519)
-- [x] AES-256-GCM + ChaCha20-Poly1305 encryption
-- [x] 3 transport modes: Web Mirror, QUIC, WebSocket + Auto mode
-- [x] AI-adaptive transport switching
-- [x] Offline-first architecture + mesh networking
-- [x] Animated owl installers (Linux/macOS/Windows)
-- [x] Cross-platform builds (amd64, arm64)
-- [x] 58+ unit tests + benchmarks
-- [x] Full documentation (README, RELEASE_NOTES, SECURITY, CONTRIBUTING)
-- [x] CI/CD GitHub Actions workflow (auto-build + release on tag push)
+- [x] **SOVA Proxy** — локальный HTTP CONNECT / plain HTTP ingress для приложений и браузеров
+- [x] **SOVA Protocol** — нативный фреймовый протокол поверх TLS с AES-256-GCM
+- [x] **SOVA WebSocket Relay** — тот же SOVA protocol поверх WebSocket для обхода DPI
+- [x] **AI + Stealth stack** — SNI spoofing, fragmentation, jitter, padding, adaptive switching
+- [x] **Post-quantum security** — Kyber1024 + Dilithium mode5
+- [x] **Zero-Knowledge authentication path**
+- [x] **Management API + Dashboard**
+- [x] **Config profiles и модульная конфигурация**
+- [x] **DNS-over-SOVA**
+- [x] **Purple owl terminal UI / dashboard refresh**
+- [x] **Native SOVA share link и profile export**
 
 ---
 
-## v1.1.0 🚀 [Q2 2026]
+## v1.1.0 🚀 [Stabilization Track]
+
+### Core
+- [ ] TUN/TAP mode for full-device SOVA VPN routing
+- [ ] Split tunneling policy engine
+- [ ] IPv6 parity across client and relay
+- [ ] Better multi-hop orchestration between SOVA gateways
+
+### UX
+- [ ] Native desktop tray integration
+- [ ] Session telemetry graphs in dashboard
+- [ ] Automatic reconnect with smarter backoff
+- [ ] Profile sync and backup workflow
+
+### Developer Adoption
+- [ ] Public protocol specification
+- [ ] Share-link schema documentation
+- [ ] Minimal Go SDK for native SOVA clients
+- [ ] Example integrations for browser/system proxy consumers
+
+---
+
+## v2.0.0 📦 [Platform Expansion]
+
+### SDK and Ecosystem
+- [ ] Stable SOVA SDK for external developers
+- [ ] Native mobile client reference apps
+- [ ] Public extension points for transports and policy engines
+- [ ] Formal compatibility test suite for third-party implementers
 
 ### Performance
-- [ ] TUN/TAP mode for full VPN capability
-- [ ] Split tunneling
-- [ ] IPv6 support
-- [ ] HTTP/3 multiplexing
-
-### Client
-- [ ] System tray integration (Windows/macOS)
-- [ ] Bandwidth monitoring graph
-- [ ] Auto-reconnect with exponential backoff
-- [ ] Profile sync across devices
+- [ ] HTTP/3-style multiplexing improvements
+- [ ] Better congestion adaptation for unstable mobile links
+- [ ] Advanced route scoring and relay selection
+- [ ] Persistent encrypted session resumption
 
 ---
 
-## v2.0.0 📦 [Q3 2026]
+## v3.0.0 🌐 [Network Layer]
 
-### Plugin System
-- [ ] Public plugin API
-- [ ] Full Xray/V2Ray integration
-- [ ] Sing-Box native support
-- [ ] Custom transport modules
+### Distributed Topology
+- [ ] Federated relay mesh
+- [ ] Load-aware multi-hop routing
+- [ ] Community-operated edge nodes
+- [ ] Hardware-backed key isolation support
 
-### Mobile
-- [ ] Android app
-- [ ] iOS app
-- [ ] Config sync across devices
-
----
-
-## v3.0.0 🌐 [Q4 2026]
-
-### Decentralization
-- [ ] P2P node infrastructure
-- [ ] Multi-hop routing
-- [ ] Load balancing
-- [ ] Advanced ML-based DPI evasion
-- [ ] Hardware security module (HSM) support
-
-### New Transport Modes
-- [ ] RTP/VoIP masquerade
-- [ ] Game packet morphing
-- [ ] IoT protocol tunneling
+### AI Networking
+- [ ] Real adaptive traffic shaping based on live network conditions
+- [ ] Smarter cover traffic profiles
+- [ ] Dynamic anti-censorship strategies per region
 
 ---
 
 ## Version Policy
 
-- **Major** (v2.0.0): Breaking changes, architecture redesign
-- **Minor** (v1.1.0): New features, backward-compatible
-- **Patch** (v1.0.1): Bug fixes, security patches
+- **Major** — architectural shifts or protocol-level breaking changes
+- **Minor** — new features without breaking the native SOVA baseline
+- **Patch** — stability, UX, and security refinements inside the current baseline
 
-Security fixes are released immediately.
+At the moment, the repository baseline remains **v1.0.0** until the next release is stable enough to justify a newer public version.
 
 ---
 
-## Contributing
+## Contributing Priorities
 
-We welcome contributions! Priority areas:
-1. **Testing** — platform-specific, edge cases
-2. **Performance** — optimization patches
-3. **Features** — new transports, strategies
-4. **Security** — vulnerability research
+1. **Protocol hardening** — tests, fuzzing, edge cases
+2. **Performance** — latency, memory, relay throughput
+3. **Developer tooling** — SDKs, examples, integration docs
+4. **UX polish** — client flows, dashboard, onboarding
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution details.
 
 ---
 
 ## Feedback
 
-- **GitHub Issues**: https://github.com/IvanChernykh/SOVA/issues (label: `roadmap`)
+- **GitHub Issues**: https://github.com/IvanChernykh/SOVA/issues
 - **Discussions**: https://github.com/IvanChernykh/SOVA/discussions
 
 ---

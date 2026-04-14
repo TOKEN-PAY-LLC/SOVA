@@ -47,6 +47,24 @@ type Config struct {
 	// Pre-shared key для SOVA протокола (аутентификация клиент↔сервер)
 	PSK string `json:"psk"`
 
+	// Маршрутизация (SOVA Core)
+	Routing RoutingConfig `json:"routing"`
+
+	// DNS Engine (SOVA Core)
+	DNSEngine DNSConfig2 `json:"dns_engine"`
+
+	// TLS fingerprint (SOVA Core)
+	TLSProfile string `json:"tls_profile"` // "chrome", "firefox", "safari", "random"
+
+	// Protocol version
+	ProtocolVersion int `json:"protocol_version"` // 1 или 2
+
+	// Domain Fronting
+	DomainFronting DomainFrontingConfig `json:"domain_fronting"`
+
+	// ECH (Encrypted Client Hello)
+	ECH ECHConfig `json:"ech"`
+
 	mu sync.RWMutex `json:"-"`
 }
 
@@ -102,6 +120,19 @@ type TransportConfig2 struct {
 	Fallback bool     `json:"fallback"` // Автопереключение при блокировке
 }
 
+// RoutingConfig настройка маршрутизации SOVA Core
+type RoutingConfig struct {
+	DefaultOutbound string         `json:"default_outbound"` // "direct", "sova", "block"
+	Rules           []RoutingRule2 `json:"rules"`
+}
+
+// RoutingRule2 JSON-serializable routing rule
+type RoutingRule2 struct {
+	Type     string `json:"type"`     // "domain", "suffix", "regex", "ip_cidr", "geoip", "process", "default"
+	Value    string `json:"value"`    // домен, CIDR, regex
+	Outbound string `json:"outbound"` // "direct", "sova", "block", "http"
+}
+
 // DefaultConfig возвращает конфигурацию по умолчанию
 func DefaultConfig() *Config {
 	return &Config{
@@ -109,7 +140,7 @@ func DefaultConfig() *Config {
 		ListenAddr: "127.0.0.1",
 		ListenPort: 1080,
 		ServerAddr: "",
-		ServerPort: 443,
+		ServerPort: 9445,
 		Encryption: EncryptionConfig{
 			Algorithm:  "aes-256-gcm",
 			PQEnabled:  true,
@@ -160,6 +191,19 @@ func DefaultConfig() *Config {
 			Fallback: true,
 		},
 		PSK: DefaultPSK,
+		Routing: RoutingConfig{
+			DefaultOutbound: "direct",
+			Rules:           []RoutingRule2{},
+		},
+		DNSEngine:       DefaultDNSConfig2(),
+		TLSProfile:      "chrome",
+		ProtocolVersion: 2,
+		DomainFronting: DomainFrontingConfig{
+			Enabled: false,
+		},
+		ECH: ECHConfig{
+			Enabled: false,
+		},
 	}
 }
 

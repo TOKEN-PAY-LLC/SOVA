@@ -77,7 +77,7 @@ func startServer(ui *common.UI) {
 	// Запуск REST API + Dashboard
 	if cfg.API.Enabled {
 		ui.PrintStatus(fmt.Sprintf("Starting management API on %s:%d...", cfg.API.Host, cfg.API.Port), common.Cyan)
-		api := NewServerAPI(serverKeys, rateLimiter, logger, connMonitor)
+		api := NewServerAPI(serverKeys, rateLimiter, logger, connMonitor, cfg)
 		api.StartAPI(cfg.API.Port)
 		ui.PrintSuccess(fmt.Sprintf("Dashboard: http://%s:%d/", cfg.API.Host, cfg.API.Port))
 		ui.PrintSuccess(fmt.Sprintf("API: http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
@@ -114,10 +114,19 @@ func startServer(ui *common.UI) {
 	}
 
 	// Запуск relay сервера — основной обработчик клиентских подключений
+	// SOVA_PORT env override (для systemd и Docker)
+	if envPort := os.Getenv("SOVA_PORT"); envPort != "" {
+		if p, err := strconv.Atoi(envPort); err == nil && p > 0 {
+			cfg.ServerPort = p
+		}
+	}
 	relayAddr := fmt.Sprintf(":%d", cfg.ServerPort)
 	ui.PrintStatus(fmt.Sprintf("Starting SOVA relay on %s...", relayAddr), common.Green)
 
 	relay := NewRelayServer(relayAddr, cfg.PSK)
+
+	// SOVA использует PSK из конфига для аутентификации (cfg.PSK)
+	ui.PrintSuccess(fmt.Sprintf("SOVA PSK: %s...%s", cfg.PSK[:8], cfg.PSK[len(cfg.PSK)-4:]))
 
 	// WebSocket relay — обход блокировки мобильными ISP (порт 443 через nginx)
 	if cfg.Transport.Mode == "websocket" || cfg.Transport.Mode == "auto" {
@@ -125,7 +134,7 @@ func startServer(ui *common.UI) {
 		wsPath := "/sova-ws"
 		wsAddr := fmt.Sprintf("127.0.0.1:%d", wsPort)
 		relay.EnableWebSocket(wsAddr, wsPath)
-		ui.PrintStatus(fmt.Sprintf("WebSocket relay on %s%s (mobile-safe)", wsAddr, wsPath), common.Cyan)
+		ui.PrintStatus(fmt.Sprintf("SOVA WebSocket on %s%s", wsAddr, wsPath), common.Cyan)
 	}
 
 	if err := relay.Start(); err != nil {

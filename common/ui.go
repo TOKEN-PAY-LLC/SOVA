@@ -10,7 +10,7 @@ import (
 )
 
 // Version версия протокола
-const Version = "1.0.1"
+const Version = "2.0.0"
 
 // ANSI escape codes
 const (
@@ -392,13 +392,18 @@ func (ui *UI) PrintBanner() {
 	fmt.Println()
 }
 
+func formatBannerLine(content string, width int) string {
+	return fmt.Sprintf("  ║ %-*s ║", width, content)
+}
+
 // printPurpleBox — красивый бокс с градиентом
 func (ui *UI) printPurpleBox() {
-	top := "  ╔════════════════════════════════════════════════════╗"
-	mid1 := "  ║     🦉  S O V A   P r o t o c o l   v" + Version + "       ║"
-	mid2 := "  ║     Secure Obfuscated Versatile Adapter          ║"
-	mid3 := "  ║     AI-Powered · Post-Quantum · Free             ║"
-	bot := "  ╚════════════════════════════════════════════════════╝"
+	bannerWidth := 54
+	top := "  ╔" + strings.Repeat("═", bannerWidth+2) + "╗"
+	mid1 := formatBannerLine("🦉  S O V A   C O R E   v"+Version, bannerWidth)
+	mid2 := formatBannerLine("SOVA Core · SOVA Protocol · SOVA VPN", bannerWidth)
+	mid3 := formatBannerLine("Post-Quantum · Mux · Stealth · Autonomous", bannerWidth)
+	bot := "  ╚" + strings.Repeat("═", bannerWidth+2) + "╝"
 
 	fmt.Println(Purple6 + Bold + top + Reset)
 	fmt.Println(Purple7 + Bold + mid1 + Reset)
@@ -407,9 +412,9 @@ func (ui *UI) printPurpleBox() {
 	fmt.Println(Purple6 + Bold + bot + Reset)
 
 	fmt.Println()
-	fmt.Printf("  %s%s %s/%s • Go %s • PQ Crypto • %s%s\n",
+	fmt.Printf("  %s%s %s/%s • Go %s • Autonomous Core • %s%s\n",
 		Purple8, OwlSmall, runtime.GOOS, runtime.GOARCH, runtime.Version(), Version, Reset)
-	fmt.Printf("  %s%s%s\n", Purple3, strings.Repeat("━", 54), Reset)
+	fmt.Printf("  %s%s%s\n", Purple3, strings.Repeat("━", bannerWidth+2), Reset)
 }
 
 // PrintBannerQuiet печатает баннер без анимации — только сидящая сова + бокс
@@ -494,11 +499,11 @@ func (ui *UI) AnimateConnection() {
 
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	msgs := []string{
-		"Initializing encrypted tunnel...",
-		"Negotiating PQ key exchange...",
-		"Establishing secure channel...",
-		"Verifying zero-knowledge proof...",
-		"Tunnel active!",
+		"Igniting SOVA core...",
+		"Negotiating post-quantum shield...",
+		"Synchronizing stealth relay...",
+		"Calibrating adaptive route...",
+		"SOVA link active!",
 	}
 	for i := 0; i < 25; i++ {
 		msg := msgs[i*len(msgs)/25]
@@ -507,7 +512,7 @@ func (ui *UI) AnimateConnection() {
 			Purple8, msg, Reset)
 		time.Sleep(80 * time.Millisecond)
 	}
-	fmt.Printf("\r  %s✓ Encrypted tunnel established!                              %s\n", BrightGreen+Bold, Reset)
+	fmt.Printf("\r  %s✓ SOVA secure link established!                            %s\n", BrightGreen+Bold, Reset)
 }
 
 // AnimateLoading анимирует загрузку с сообщением
@@ -599,9 +604,9 @@ func (ui *UI) PrintConfig(cfg *Config) {
 	ui.PrintKeyValue("Dashboard:", boolToStatus(cfg.Features.Dashboard))
 	ui.PrintKeyValue("Auto Proxy:", boolToStatus(cfg.Features.AutoProxy))
 	if cfg.UpstreamProxy != "" {
-		ui.PrintKeyValue("Upstream Proxy:", Gold+Bold+cfg.UpstreamProxy+Reset)
+		ui.PrintKeyValue("Upstream Gateway:", Gold+Bold+cfg.UpstreamProxy+Reset)
 	} else {
-		ui.PrintKeyValue("Upstream Proxy:", Dim+"not set (direct)"+Reset)
+		ui.PrintKeyValue("Upstream Gateway:", Dim+"not set (direct)"+Reset)
 	}
 	ui.PrintKeyValue("Transport:", cfg.Transport.Mode)
 	ui.PrintKeyValue("Log Level:", cfg.LogLevel)
@@ -653,9 +658,9 @@ func (ui *UI) PrintFeatures(cfg *Config) {
 func (ui *UI) PrintHelp() {
 	ui.PrintSection("Commands")
 	cmds := []struct{ cmd, desc string }{
-		{"sova", "Start SOVA tunnel (SOVA proxy)"},
+		{"sova", "Start SOVA Proxy and autonomous tunnel"},
 		{"sova start", "Same as above"},
-		{"sova connect <server>", "Connect through remote SOVA server"},
+		{"sova connect <server>", "Connect through remote SOVA relay"},
 		{"sova config", "Show current configuration"},
 		{"sova config set <k> <v>", "Update config setting"},
 		{"sova config reset", "Reset config to defaults"},
@@ -679,14 +684,15 @@ func (ui *UI) PrintHelp() {
 	ui.PrintSection("Config Keys")
 	keys := []struct{ key, desc string }{
 		{"mode", "local | remote | server"},
-		{"listen_addr", "Proxy listen address (127.0.0.1)"},
-		{"listen_port", "Proxy listen port (1080)"},
+		{"listen_addr", "SOVA Proxy listen address (127.0.0.1)"},
+		{"listen_port", "SOVA Proxy listen port (1080)"},
 		{"server_addr", "Remote server address"},
 		{"server_port", "Remote server port (443)"},
 		{"encryption", "aes-256-gcm | chacha20-poly1305"},
 		{"stealth_profile", "chrome | youtube | cloud_api | random"},
 		{"tls_fingerprint", "chrome | firefox | safari | random"},
 		{"transport_mode", "auto | web_mirror | quic | websocket"},
+		{"upstream_proxy", "sova://host:port or http://host:port"},
 		{"log_level", "debug | info | warn | error"},
 		{"api_port", "Management API port (8080)"},
 		{"dns_upstream", "DNS upstream (8.8.8.8:53)"},
@@ -707,7 +713,7 @@ func (ui *UI) PrintHelp() {
 		fmt.Printf("  %s%s%s\n", Purple8, m, Reset)
 	}
 
-	ui.PrintSection("Proxy Setup")
+	ui.PrintSection("SOVA Proxy Setup")
 	fmt.Printf("  %sAfter starting SOVA, configure your browser/system proxy:%s\n", Dim, Reset)
 	fmt.Printf("  %sSOVA Proxy → 127.0.0.1:1080%s\n", Gold+Bold, Reset)
 	fmt.Printf("  %sSystem proxy auto-configured, or use: %scurl --proxy http://127.0.0.1:1080 https://youtube.com%s\n", Dim, Yellow, Reset)
@@ -746,21 +752,21 @@ func (ui *UI) ExitWithError(err error) {
 
 // PrintDivider печатает разделитель
 func (ui *UI) PrintDivider() {
-	fmt.Printf("  %s%s%s\n", Purple3, strings.Repeat("━", 54), Reset)
+	fmt.Printf("  %s%s%s\n", Purple3, strings.Repeat("━", 56), Reset)
 }
 
 // PrintTunnelActive печатает финальное сообщение об активном туннеле
 func (ui *UI) PrintTunnelActive(listenAddr string, cfg *Config) {
 	ui.PrintSection("🦉 SOVA Tunnel Active")
 	ui.PrintKeyValue("SOVA Proxy:", Gold+Bold+listenAddr+Reset)
-	ui.PrintKeyValue("Protocol:", "SOVA v"+Version+" (TLS + AES-256-GCM)")
+	ui.PrintKeyValue("Protocol:", "SOVA v"+Version+" (Native Relay over TLS)")
 	ui.PrintKeyValue("Encryption:", cfg.Encryption.Algorithm)
 	ui.PrintKeyValue("Stealth:", cfg.Stealth.Profile)
 	if cfg.API.Enabled {
 		ui.PrintKeyValue("API:", fmt.Sprintf("http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
 	}
 	if cfg.UpstreamProxy != "" {
-		ui.PrintKeyValue("Upstream:", Gold+Bold+cfg.UpstreamProxy+Reset)
+		ui.PrintKeyValue("Gateway:", Gold+Bold+cfg.UpstreamProxy+Reset)
 	}
 	if cfg.Features.AutoProxy {
 		ui.PrintKeyValue("System Proxy:", BrightGreen+Bold+"ON — all system traffic routed"+Reset)

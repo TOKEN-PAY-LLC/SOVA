@@ -75,9 +75,18 @@ func VerifyProof(proof *ZKPProof, challenge *ZKPChallenge, userID string, passwo
 
 // JSONConfig представляет конфигурацию подключения
 type JSONConfig struct {
-	ServerPubKey string   `json:"server_pub_key"`
-	Transports   []string `json:"transports"`
-	SNIList      []string `json:"sni_list"`
+	Protocol       string   `json:"protocol,omitempty"`
+	Version        string   `json:"version,omitempty"`
+	Server         string   `json:"server,omitempty"`
+	ServerPort     int      `json:"server_port,omitempty"`
+	ServerPubKey   string   `json:"server_pub_key"`
+	PSK            string   `json:"psk,omitempty"`
+	Transports     []string `json:"transports"`
+	SNIList        []string `json:"sni_list"`
+	FragmentSize   int      `json:"fragment_size,omitempty"`
+	FragmentJitter int      `json:"fragment_jitter,omitempty"`
+	WebSocketPath  string   `json:"websocket_path,omitempty"`
+	LocalProxy     string   `json:"local_proxy,omitempty"`
 }
 
 // EncodeConfig кодирует JSONConfig в base64 строку

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"sova/common"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -21,6 +24,7 @@ type ServerAPI struct {
 	RateLimiter *RateLimiter
 	Logger      *Logger
 	ConnMonitor *ConnectionMonitor
+	runtimeCfg  *common.Config
 }
 
 // Session представляет активную сессию
@@ -40,7 +44,7 @@ type ServerStats struct {
 }
 
 // NewServerAPI создает новый API
-func NewServerAPI(serverKeys *common.ServerKeys, rateLimiter *RateLimiter, logger *Logger, connMonitor *ConnectionMonitor) *ServerAPI {
+func NewServerAPI(serverKeys *common.ServerKeys, rateLimiter *RateLimiter, logger *Logger, connMonitor *ConnectionMonitor, runtimeCfg *common.Config) *ServerAPI {
 	return &ServerAPI{
 		users:       make(map[string]*common.UserCredentials),
 		sessions:    make(map[string]*Session),
@@ -49,6 +53,7 @@ func NewServerAPI(serverKeys *common.ServerKeys, rateLimiter *RateLimiter, logge
 		RateLimiter: rateLimiter,
 		Logger:      logger,
 		ConnMonitor: connMonitor,
+		runtimeCfg:  runtimeCfg,
 	}
 }
 
@@ -110,6 +115,111 @@ func (api *ServerAPI) GetStats() *ServerStats {
 	return &stats
 }
 
+func (api *ServerAPI) buildSOVAProfile() *common.JSONConfig {
+	server := os.Getenv("SERVER_DOMAIN")
+	if server == "" {
+		server = os.Getenv("SOVA_DOMAIN")
+	}
+	if server == "" && api.runtimeCfg != nil && api.runtimeCfg.ServerAddr != "" {
+		server = api.runtimeCfg.ServerAddr
+	}
+	if server == "" {
+		server = "sova.example.com"
+	}
+
+	serverPort := 443
+	psk := common.DefaultPSK
+	sniList := []string{"www.google.com", "cdn.cloudflare.com"}
+	transports := []string{"tcp-sova"}
+	fragmentSize := 2
+	fragmentJitter := 25
+	websocketPath := ""
+
+	if api.runtimeCfg != nil {
+		if api.runtimeCfg.ServerPort > 0 {
+			serverPort = api.runtimeCfg.ServerPort
+		}
+		if api.runtimeCfg.PSK != "" {
+			psk = api.runtimeCfg.PSK
+		}
+		if len(api.runtimeCfg.Transport.SNIList) > 0 {
+			sniList = append([]string{}, api.runtimeCfg.Transport.SNIList...)
+		}
+		if api.runtimeCfg.Stealth.JitterMs >= 0 {
+			fragmentJitter = api.runtimeCfg.Stealth.JitterMs
+		}
+		if api.runtimeCfg.Transport.Mode == "websocket" || api.runtimeCfg.Transport.Mode == "auto" {
+			transports = []string{"tcp-sova", "ws-sova"}
+			websocketPath = "/sova-ws"
+		}
+	}
+
+	return &common.JSONConfig{
+		Protocol:       "sova",
+		Version:        common.Version,
+		Server:         server,
+		ServerPort:     serverPort,
+		ServerPubKey:   base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
+		PSK:            psk,
+		Transports:     transports,
+		SNIList:        sniList,
+		FragmentSize:   fragmentSize,
+		FragmentJitter: fragmentJitter,
+		WebSocketPath:  websocketPath,
+		LocalProxy:     "http://127.0.0.1:1080",
+	}
+}
+
+func (api *ServerAPI) buildSOVAShareLink(profile *common.JSONConfig) string {
+	query := url.Values{}
+	if profile.PSK != "" {
+		query.Set("psk", profile.PSK)
+	}
+	if profile.FragmentSize > 0 {
+		query.Set("frag", strconv.Itoa(profile.FragmentSize))
+	}
+	if profile.FragmentJitter > 0 {
+		query.Set("jitter", strconv.Itoa(profile.FragmentJitter))
+	}
+	if len(profile.SNIList) > 0 {
+		query.Set("sni", strings.Join(profile.SNIList, ","))
+	}
+	if profile.WebSocketPath != "" {
+		query.Set("ws", profile.WebSocketPath)
+	}
+	return fmt.Sprintf("sova://%s:%d?%s#SOVA", profile.Server, profile.ServerPort, query.Encode())
+}
+
+func (api *ServerAPI) exportNativeConfig(profile *common.JSONConfig) string {
+	data, err := json.MarshalIndent(profile, "", "  ")
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
+func (api *ServerAPI) exportSingBoxPatchConfig(profile *common.JSONConfig) string {
+	return fmt.Sprintf(`{
+  "outbounds": [{
+    "type": "sova",
+    "tag": "SOVA-NATIVE",
+    "server": "%s",
+    "server_port": %d,
+    "psk": "%s",
+    "sni_list": ["%s"],
+    "fragment_size": %d,
+    "fragment_jitter": %d
+  }]
+}`,
+		profile.Server,
+		profile.ServerPort,
+		profile.PSK,
+		strings.Join(profile.SNIList, `","`),
+		profile.FragmentSize,
+		profile.FragmentJitter,
+	)
+}
+
 // HTTP handlers
 
 // handleRegister обрабатывает регистрацию пользователя
@@ -167,11 +277,7 @@ func (api *ServerAPI) handleConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config := &common.JSONConfig{
-		ServerPubKey: base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
-		Transports:   []string{"web_mirror"},
-		SNIList:      []string{"sova.example.com"},
-	}
+	config := api.buildSOVAProfile()
 
 	encoded, err := common.EncodeConfig(config)
 	if err != nil {
@@ -199,26 +305,18 @@ func (api *ServerAPI) handleExportConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	config := &common.JSONConfig{
-		ServerPubKey: base64.StdEncoding.EncodeToString(api.serverKeys.PublicKey),
-		Transports:   []string{"web_mirror", "cloud_carrier", "shadow_websocket"},
-		SNIList:      []string{"sova.example.com", "cdn.cloudflare.com", "aws.amazon.com"},
-	}
+	config := api.buildSOVAProfile()
 
 	var exportedConfig string
 	switch clientType {
-	case "xray":
-		exportedConfig = api.exportV2RayConfig(config, userID)
-	case "v2ray":
-		exportedConfig = api.exportV2RayConfig(config, userID)
-	case "singbox":
-		exportedConfig = api.exportSingBoxConfig(config, userID)
-	case "clash":
-		exportedConfig = api.exportClashConfig(config, userID)
-	case "nekoray":
-		exportedConfig = api.exportNekoRayConfig(config, userID)
+	case "native", "profile", "sova":
+		exportedConfig = api.exportNativeConfig(config)
+	case "share_link":
+		exportedConfig = api.buildSOVAShareLink(config)
+	case "singbox_patch":
+		exportedConfig = api.exportSingBoxPatchConfig(config)
 	default:
-		http.Error(w, "Unsupported client type. Supported: xray, v2ray, singbox, clash, nekoray", http.StatusBadRequest)
+		http.Error(w, "Unsupported client type. Supported: native, profile, sova, share_link, singbox_patch", http.StatusBadRequest)
 		return
 	}
 
@@ -235,14 +333,17 @@ func (api *ServerAPI) handleProxyConfig(w http.ResponseWriter, r *http.Request) 
 
 	// Example output
 	type ProxyConf struct {
-		Name string `json:"name"`
-		URL  string `json:"url"`
+		Name        string `json:"name"`
+		URL         string `json:"url"`
+		Description string `json:"description"`
 	}
 
+	profile := api.buildSOVAProfile()
+	encodedProfile, _ := common.EncodeConfig(profile)
 	confs := []ProxyConf{
-		{Name: "xray", URL: "vless://" + "your-sova-server.com"},
-		{Name: "singbox", URL: "sova://" + "your-sova-server.com"},
-		{Name: "generic", URL: "sova://127.0.0.1:1080"},
+		{Name: "sova_share_link", URL: api.buildSOVAShareLink(profile), Description: "Native SOVA share link for external integrators"},
+		{Name: "sova_profile_base64", URL: encodedProfile, Description: "Base64-encoded native SOVA profile"},
+		{Name: "sova_local_proxy", URL: profile.LocalProxy, Description: "Local SOVA Proxy endpoint for browsers and apps"},
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(confs)
@@ -255,114 +356,6 @@ func (api *ServerAPI) registerAPIRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/config", api.handleConfig)
 	mux.HandleFunc("/api/export", api.handleExportConfig)
 	mux.HandleFunc("/api/proxy", api.handleProxyConfig)
-}
-
-// Экспорт конфигураций для различных клиентов
-
-func (api *ServerAPI) exportClashConfig(config *common.JSONConfig, userID string) string {
-	return fmt.Sprintf(`{
-  "proxies": [{
-    "name": "SOVA-%s",
-    "type": "http",
-    "server": "127.0.0.1",
-    "port": 1080,
-    "username": "%s",
-    "password": "sova_password"
-  }],
-  "proxy-groups": [{
-    "name": "SOVA",
-    "type": "select",
-    "proxies": ["SOVA-%s"]
-  }]
-}`, userID, userID, userID)
-}
-
-func (api *ServerAPI) exportV2RayConfig(config *common.JSONConfig, userID string) string {
-	return fmt.Sprintf(`{
-  "inbounds": [{
-    "port": 1080,
-    "protocol": "http",
-    "settings": {
-      "auth": "password",
-      "accounts": [{
-        "user": "%s",
-        "pass": "sova_password"
-      }]
-    }
-  }],
-  "outbounds": [{
-    "protocol": "vless",
-    "settings": {
-      "vnext": [{
-        "address": "sova.example.com",
-        "port": 443,
-        "users": [{
-          "id": "%s",
-          "encryption": "none"
-        }]
-      }]
-    },
-    "streamSettings": {
-      "network": "tcp",
-      "security": "tls",
-      "tlsSettings": {
-        "serverName": "sova.example.com"
-      }
-    }
-  }]
-}`, userID, userID)
-}
-
-func (api *ServerAPI) exportSingBoxConfig(config *common.JSONConfig, userID string) string {
-	return fmt.Sprintf(`{
-  "inbounds": [{
-    "type": "http",
-    "tag": "sova-in",
-    "listen": "::",
-    "listen_port": 1080,
-    "users": [{
-      "username": "%s",
-      "password": "sova_password"
-    }]
-  }],
-  "outbounds": [{
-    "type": "vless",
-    "tag": "sova-out",
-    "server": "sova.example.com",
-    "server_port": 443,
-    "uuid": "%s",
-    "tls": {
-      "enabled": true,
-      "server_name": "sova.example.com"
-    }
-  }]
-}`, userID, userID)
-}
-
-func (api *ServerAPI) exportNekoRayConfig(config *common.JSONConfig, userID string) string {
-	return fmt.Sprintf(`{
-  "outbounds": [{
-    "protocol": "vless",
-    "settings": {
-      "vnext": [{
-        "address": "sova.example.com",
-        "port": 443,
-        "users": [{
-          "id": "%s",
-          "encryption": "none"
-        }]
-      }]
-    },
-    "streamSettings": {
-      "network": "tcp",
-      "security": "tls",
-      "tlsSettings": {
-        "serverName": "sova.example.com"
-      }
-    },
-    "tag": "SOVA-%s"
-  }]
-}`, userID, userID)
 }
 
 // StartAPI запускает HTTP API сервер с дашбордом

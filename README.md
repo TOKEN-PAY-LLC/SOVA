@@ -1,10 +1,10 @@
-# 🦉 SOVA Protocol v1.0.1
+# 🦉 SOVA Protocol v1.0.0
 
 ```
          ▄▄▄████▄▄▄
-       ▄██▀▀    ▀▀██▄      S O V A   P r o t o c o l
-      ███  ◉    ◉  ███     Secure Obfuscated Versatile Adapter
-      ███    ▾▾    ███     Fully Autonomous · DPI-Evasive · Free
+       ▄██▀▀    ▀▀██▄      S O V A   N e t w o r k
+      ███  ◉    ◉  ███     SOVA Proxy · SOVA Protocol · SOVA VPN
+      ███    ▾▾    ███     Autonomous · Stealth · Post-Quantum
        ▀██▄▄▄▄▄▄██▀
       ╱╱ ▀████████▀ ╲╲
      ╱╱   ║██████║   ╲╲
@@ -13,15 +13,16 @@
           ▄╩╩▄▄╩╩▄
 ```
 
-**SOVA** — полностью автономный протокол нового поколения для защищённой передачи данных. 
+**SOVA** — автономный стек защищённой сети: собственный локальный прокси, собственный зашифрованный relay-протокол и собственный серверный путь без обязательной опоры на внешние прокси-протоколы.
 
-**v1.0.1 — ПОЛНАЯ АВТОНОМИЯ:**
-- ✅ **Собственный прокси** (SOVA Proxy, HTTP CONNECT) — не SOCKS5
-- ✅ **Собственный wire protocol** (AES-256-GCM encrypted frames)
-- ✅ **Собственный TLS камуфляж** (ClientHello fragmentation, SNI spoofing)
-- ✅ **DPI обход** (timing jitter, random padding, self-signed certs)
+**Текущий публичный baseline — `v1.0.0`:**
+- ✅ **SOVA Proxy** — локальный HTTP CONNECT / plain HTTP ingress
+- ✅ **SOVA Protocol** — нативный фреймовый transport поверх TLS
+- ✅ **SOVA WebSocket Relay** — тот же SOVA protocol через WebSocket
+- ✅ **Stealth + AI stack** — fragmentation, spoofing, jitter, adaptive switching
+- ✅ **Post-Quantum Security** — Kyber1024 + Dilithium mode5
 
-Работает как VPN, обходит DPI, невидим как сова в ночи. Красивая фиолетовая анимированная сова летит по терминалу при запуске.
+Репозиторий остаётся на `v1.0.0`, пока следующий публичный релиз не будет действительно сильнее и стабильнее.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8.svg)](https://go.dev)
@@ -29,16 +30,17 @@
 
 ---
 
-## Что нового в v1.0.1
+## Что входит в baseline v1.0.0
 
 | Компонент | Описание |
 |---|---|
-| **SOVA Proxy** | Собственный HTTP CONNECT прокси-сервер (не SOCKS5) |
-| **Wire Protocol** | AES-256-GCM encrypted frames с handshake и session keys |
-| **DPI Evasion** | TLS ClientHello фрагментация, SNI spoofing, jitter, padding |
-| **TLS Camouflage** | Self-signed certificates, fake SNI, timing obfuscation |
-| **System Proxy** | HTTP CONNECT format (Windows нативно поддерживает) |
-| **Version** | v1.0.1 (полная автономия) |
+| **SOVA Proxy** | Локальный proxy ingress для браузеров и приложений |
+| **SOVA Protocol** | Нативные encrypted frames с handshake и ACK flow |
+| **SOVA Relay** | Серверный relay с прямым dial к целям |
+| **SOVA WebSocket** | Native SOVA relay поверх WebSocket |
+| **Stealth Layer** | TLS camouflage, fragmentation, jitter, padding |
+| **System Proxy** | HTTP/HTTPS system-proxy integration |
+| **Version** | `v1.0.0` — текущий публичный baseline |
 
 ---
 
@@ -133,22 +135,22 @@ curl --proxy http://127.0.0.1:1080 https://youtube.com
 
 ---
 
-## Архитектура v1.0.1
+## Архитектура v1.0.0
 
 ### Поток трафика
 
 ```
 [Браузер/Приложение]
     ↓
-[SOVA Proxy — HTTP CONNECT, 127.0.0.1:1080]
+[SOVA Proxy — local ingress, 127.0.0.1:1080]
     ↓
-[SOVA Client — TLS + DPI Evasion]
-    ├─ ClientHello Fragmentation (2-byte segments)
-    ├─ SNI Spoofing (google.com, cloudflare.com, youtube.com)
-    ├─ Timing Jitter (random delays)
-    └─ Random Padding (4-64 bytes per frame)
+[SOVA Client — TLS + Stealth Layer]
+    ├─ ClientHello Fragmentation
+    ├─ SNI Spoofing
+    ├─ Timing Jitter
+    └─ Random Padding
     ↓
-[SOVA Server — TLS Listener + Protocol Handler]
+[SOVA Relay Server — native handler]
     ↓
 [Internet]
 ```
@@ -160,10 +162,10 @@ Frame Format:
 [Nonce:12] [Length:2] [AES-256-GCM(PadLen:1 | Type:1 | Payload:N | Padding:P)]
 
 Handshake:
-1. Client sends: Magic(SOVA) + Version + ClientSalt
-2. Server sends: ServerSalt + ACK
-3. Both derive: SessionKey = HKDF(PSK, ClientSalt, ServerSalt)
-4. All frames encrypted with SessionKey
+1. Client sends SOVA magic + version + salt material
+2. Server acknowledges and returns server salt
+3. Both sides derive a shared session key from PSK and salts
+4. Relay frames move only inside the native SOVA framing layer
 
 Frame Types:
 - CONNECT (0x01) — establish connection to target
@@ -185,12 +187,12 @@ Frame Types:
 
 ### Безопасность
 
-- **SOVA Wire Protocol**: Собственный encrypted frame protocol (Magic + Version + Salt handshake)
+- **SOVA Wire Protocol**: собственный encrypted frame protocol (Magic + Version + Salt handshake)
 - **Шифрование**: AES-256-GCM + ChaCha20-Poly1305 (фреймы + payload)
 - **Пост-квантовое**: Kyber1024 (KEM) + Dilithium mode5 (подписи)
 - **Аутентификация**: Zero-Knowledge Proof на Ed25519
 - **DPI Evasion**: TLS ClientHello фрагментация, SNI spoofing, timing jitter, random padding
-- **SOVA Proxy**: Собственный HTTP CONNECT прокси (не SOCKS5)
+- **SOVA Proxy**: собственный локальный ingress для приложений и браузеров
 - **DNS-over-SOVA**: Защищённый DNS с кэшированием и fallback
 
 ### Ускорение трафика
@@ -298,12 +300,22 @@ sova features            # Показать статус всех модулей
 
 ---
 
-## Совместимость
+## Интеграция
 
-SOVA работает как плагин для:
-- **Xray / V2Ray** — расширение VLESS+XTLS
-- **Sing-Box** — нативный outbound
-- **Любое приложение** — через встроенный SOVA Proxy (HTTP CONNECT)
+SOVA рассчитан в первую очередь на **нативное внедрение** и на использование через собственные точки входа:
+
+- **Любое приложение** — через встроенный `SOVA Proxy`
+- **Сторонние разработчики** — через `sova://` share link и `SOVA profile`
+- **Серверные развёртывания** — через нативный SOVA relay over TLS / WebSocket
+
+### Для разработчиков
+
+Если вы хотите встраивать SOVA в сторонние продукты, рекомендуемый путь такой:
+
+1. использовать `SOVA profile` как базовый формат конфигурации;
+2. реализовать нативный handshake и frame transport из `common/protocol.go`;
+3. поддержать `sova://` share link в UI/импорте конфигов;
+4. использовать локальный `SOVA Proxy`, если пока не готова нативная интеграция.
 
 ---
 
@@ -333,14 +345,14 @@ go test -bench=. -benchmem ./common/
 SOVA/
 ├── server/                  # Сервер
 │   ├── main.go                  # Точка входа, CLI, запуск
-│   ├── relay.go                 # SOVA protocol relay (TLS listener + handler)
-│   ├── api.go                   # Серверный REST API + регистрация
+│   ├── relay.go                 # SOVA relay (TLS + WebSocket transports)
+│   ├── api.go                   # Серверный REST API + native SOVA profile export
 │   ├── dashboard.go             # Web-дашборд (фиолетовая тема)
 │   └── middleware.go            # Rate limiter, logger, connection monitor
 ├── client/                  # Клиент CLI
 │   └── main.go                  # Авто-туннель, SOVA Proxy, 18 команд
 ├── common/                  # Общая библиотека
-│   ├── sova_proxy.go            # SOVA Proxy (HTTP CONNECT + legacy SOCKS5 auto-detect)
+│   ├── sova_proxy.go            # SOVA Proxy (HTTP CONNECT / plain HTTP ingress)
 │   ├── protocol.go              # SOVA Wire Protocol (frames, encryption, handshake)
 │   ├── dpi.go                   # DPI Evasion (fragmentation, SNI spoofing, jitter)
 │   ├── config.go                # Конфигурация (профили, JSON, 15 модулей)
@@ -352,12 +364,13 @@ SOVA/
 │   ├── ai.go                    # AI-адаптивное переключение
 │   ├── accelerator.go           # Ускорение трафика (gzip, pooling)
 │   ├── stealth.go               # Стелс-движок (mimicry, jitter, padding, decoy)
-│   ├── socks5.go                # Legacy SOCKS5 (для совместимости)
+│   ├── upstream.go              # Upstream SOVA gateway / HTTP chaining
 │   ├── dns.go                   # DNS-over-SOVA резолвер
 │   ├── mesh.go                  # Mesh-сеть между нодами
 │   ├── offline_first.go         # Offline-first архитектура
 │   └── *_test.go                # Тесты (58+)
-├── plugin/                  # Плагины (Xray, Sing-Box)
+├── plugin/                  # Резерв под будущие native integration adapters
+├── singbox-patch/           # Reference patch notes and external build materials
 ├── .github/workflows/       # CI/CD (автосборка + релиз)
 ├── install.sh               # Установщик Linux/macOS
 ├── install.ps1              # Установщик Windows

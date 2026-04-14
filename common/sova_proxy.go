@@ -2,12 +2,12 @@ package common
 
 // ── SOVA Proxy — собственный прокси-сервер SOVA ────────────────────────
 //
-// Полностью автономный прокси. НЕ SOCKS5, НЕ HTTP-прокси стороннего формата.
+// Полностью автономный входной шлюз SOVA.
 // SOVA сам себе прокси, сам себе протокол, сам себе маршрутизатор.
 //
 // Локальный прокси принимает подключения от браузеров/приложений:
-//   - HTTP CONNECT (нативная поддержка в браузерах и системном прокси Windows)
-//   - Авто-детект устаревших SOCKS5 клиентов для обратной совместимости
+//   - HTTP CONNECT (нативная поддержка в браузерах и системном прокси)
+//   - Plain HTTP proxy requests
 //
 // Маршрутизация:
 //   - Напрямую (direct) — для локального режима
@@ -18,12 +18,10 @@ package common
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -112,7 +110,7 @@ func (p *SOVAProxy) GetStats() map[string]int64 {
 }
 
 // handleConnection определяет тип подключения и обрабатывает его.
-// Авто-детект: первый байт 0x05 = legacy SOCKS5, иначе HTTP CONNECT.
+// SOVA Proxy принимает только HTTP CONNECT и plain HTTP запросы.
 func (p *SOVAProxy) handleConnection(conn net.Conn) {
 	defer func() {
 		conn.Close()
@@ -128,12 +126,11 @@ func (p *SOVAProxy) handleConnection(conn net.Conn) {
 	}
 
 	if buf[0] == 0x05 {
-		// Legacy SOCKS5 совместимость (для curl и др.)
-		p.handleLegacySocks(conn, buf[0])
-	} else {
-		// HTTP CONNECT — основной режим SOVA прокси
-		p.handleHTTPConnect(conn, buf[0])
+		return
 	}
+
+	// HTTP CONNECT — основной режим SOVA прокси
+	p.handleHTTPConnect(conn, buf[0])
 }
 
 // ── HTTP CONNECT — основной протокол SOVA прокси ────────────────────────
@@ -205,94 +202,6 @@ func (p *SOVAProxy) handlePlainHTTP(conn net.Conn, req *http.Request, reader *bu
 
 	// Relay ответ обратно клиенту
 	p.tunnel(conn, remote)
-}
-
-// ── Legacy SOCKS5 совместимость ─────────────────────────────────────────
-// Для приложений (curl, etc.) которые используют SOCKS5.
-// SOVA обрабатывает их прозрачно, но это НЕ основной протокол.
-
-func (p *SOVAProxy) handleLegacySocks(conn net.Conn, versionByte byte) {
-	// versionByte уже прочитан (0x05)
-	// Читаем количество методов аутентификации
-	numBuf := make([]byte, 1)
-	if _, err := io.ReadFull(conn, numBuf); err != nil {
-		return
-	}
-	methods := make([]byte, numBuf[0])
-	if _, err := io.ReadFull(conn, methods); err != nil {
-		return
-	}
-
-	// Принимаем no-auth
-	conn.Write([]byte{0x05, 0x00})
-
-	// Читаем CONNECT запрос: VER CMD RSV ATYP
-	header := make([]byte, 4)
-	if _, err := io.ReadFull(conn, header); err != nil {
-		return
-	}
-	if header[1] != 0x01 { // Только CONNECT
-		p.socksReply(conn, 0x07)
-		return
-	}
-
-	// Парсим адрес
-	var host string
-	switch header[3] {
-	case 0x01: // IPv4
-		addr := make([]byte, 4)
-		if _, err := io.ReadFull(conn, addr); err != nil {
-			return
-		}
-		host = net.IP(addr).String()
-	case 0x03: // Domain
-		lenBuf := make([]byte, 1)
-		if _, err := io.ReadFull(conn, lenBuf); err != nil {
-			return
-		}
-		domain := make([]byte, lenBuf[0])
-		if _, err := io.ReadFull(conn, domain); err != nil {
-			return
-		}
-		host = string(domain)
-	case 0x04: // IPv6
-		addr := make([]byte, 16)
-		if _, err := io.ReadFull(conn, addr); err != nil {
-			return
-		}
-		host = net.IP(addr).String()
-	default:
-		p.socksReply(conn, 0x08)
-		return
-	}
-
-	// Порт
-	portBuf := make([]byte, 2)
-	if _, err := io.ReadFull(conn, portBuf); err != nil {
-		return
-	}
-	port := binary.BigEndian.Uint16(portBuf)
-	targetAddr := net.JoinHostPort(host, strconv.Itoa(int(port)))
-
-	conn.SetDeadline(time.Time{})
-
-	// Подключаемся
-	remote, err := p.RemoteDialer("tcp", targetAddr)
-	if err != nil {
-		p.socksReply(conn, 0x05)
-		return
-	}
-	defer remote.Close()
-
-	// Успех
-	p.socksReply(conn, 0x00)
-
-	// Tunnel
-	p.tunnel(conn, remote)
-}
-
-func (p *SOVAProxy) socksReply(conn net.Conn, status byte) {
-	conn.Write([]byte{0x05, status, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 }
 
 // ── Tunnel ──────────────────────────────────────────────────────────────

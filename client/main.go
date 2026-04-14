@@ -32,12 +32,15 @@ func runCLI(ui *common.UI, command string) {
 	case "start":
 		startTunnel(ui)
 
+	case "core":
+		startCore(ui)
+
 	case "help", "-h", "--help":
 		ui.PrintBannerQuiet()
 		ui.PrintHelp()
 
 	case "version", "-v", "--version":
-		fmt.Printf("SOVA Protocol v%s\n", common.Version)
+		fmt.Printf("SOVA Core v%s\n", common.Version)
 
 	case "config":
 		handleConfig(ui)
@@ -94,9 +97,10 @@ func runInteractiveMenu(ui *common.UI) {
 		}
 
 		items := []common.MenuItem{
-			{LabelEN: "Start Tunnel", LabelRU: "Запустить туннель", DescEN: "SOCKS5 + auto-proxy", DescRU: "SOCKS5 + авто-прокси"},
+			{LabelEN: "Start SOVA Core", LabelRU: "Запустить SOVA Core", DescEN: "Core engine + routing + auto-proxy", DescRU: "Ядро + маршрутизация + авто-прокси"},
+			{LabelEN: "Start Tunnel (Legacy)", LabelRU: "Запустить туннель", DescEN: "SOVA Proxy + auto-route", DescRU: "SOVA Proxy + авто-маршрут"},
 			{LabelEN: "Connect to Server", LabelRU: "Подключиться к серверу", DescEN: "Via remote SOVA server", DescRU: "Через удалённый сервер"},
-			{LabelEN: "Upstream Proxy", LabelRU: "Upstream прокси", DescEN: upstreamDesc, DescRU: upstreamDesc},
+			{LabelEN: "SOVA Gateway", LabelRU: "Шлюз SOVA", DescEN: upstreamDesc, DescRU: upstreamDesc},
 			{LabelEN: "System Proxy " + proxyStatus, LabelRU: "Системный прокси " + proxyStatus, DescEN: "Route ALL traffic through SOVA", DescRU: "Весь трафик через SOVA"},
 			{LabelEN: "Configuration", LabelRU: "Конфигурация", DescEN: "View & edit settings", DescRU: "Настройки"},
 			{LabelEN: "Modules", LabelRU: "Модули", DescEN: "Toggle features on/off", DescRU: "Вкл/выкл модули"},
@@ -105,28 +109,31 @@ func runInteractiveMenu(ui *common.UI) {
 			{LabelEN: "Exit", LabelRU: "Выход", DescEN: "", DescRU: ""},
 		}
 
-		choice := common.RunMenu("SOVA Protocol v"+common.Version, "Протокол SOVA v"+common.Version, items)
+		choice := common.RunMenu("SOVA Core v"+common.Version, "SOVA Core v"+common.Version, items)
 		switch choice {
 		case 0:
-			startTunnel(ui)
+			startCore(ui)
 			return
 		case 1:
-			menuConnect(ui)
+			startTunnel(ui)
+			return
 		case 2:
-			menuUpstreamProxy(ui)
+			menuConnect(ui)
 		case 3:
-			menuSystemProxy(ui)
+			menuUpstreamProxy(ui)
 		case 4:
-			menuConfig(ui)
+			menuSystemProxy(ui)
 		case 5:
-			menuModules(ui)
+			menuConfig(ui)
 		case 6:
+			menuModules(ui)
+		case 7:
 			handleStatus(ui)
 			waitEnter()
-		case 7:
+		case 8:
 			ui.PrintHelp()
 			waitEnter()
-		case -1, 8:
+		case -1, 9:
 			fmt.Println()
 			ui.PrintSuccess(common.T("Goodbye! Stay free!", "До свидания! Оставайтесь свободными!"))
 			return
@@ -151,23 +158,23 @@ func menuUpstreamProxy(ui *common.UI) {
 	fmt.Println()
 	if cfg.UpstreamProxy != "" {
 		fmt.Printf("  %s%s%s %s%s%s\n", common.Purple7, common.Bold,
-			common.T("Current upstream:", "Текущий upstream:"), common.Reset+common.Gold+common.Bold, cfg.UpstreamProxy, common.Reset)
+			common.T("Current gateway:", "Текущий шлюз:"), common.Reset+common.Gold+common.Bold, cfg.UpstreamProxy, common.Reset)
 	} else {
 		fmt.Printf("  %s%s%s\n", common.Yellow,
-			common.T("No upstream proxy set — traffic goes direct from your IP", "Upstream не задан — трафик идёт напрямую с вашего IP"), common.Reset)
+			common.T("No upstream gateway set — traffic goes direct from your IP", "Шлюз не задан — трафик идёт напрямую с вашего IP"), common.Reset)
 	}
 
 	fmt.Println()
 	fmt.Printf("  %s%s%s\n", common.Dim,
-		common.T("Formats: socks5://host:port  http://host:port  host:port",
-			"Форматы: socks5://host:port  http://host:port  host:port"), common.Reset)
+		common.T("Formats: sova://host:port  http://host:port  host:port",
+			"Форматы: sova://host:port  http://host:port  host:port"), common.Reset)
 	fmt.Printf("  %s%s%s\n", common.Dim,
-		common.T("Enter 'clear' to remove upstream proxy",
-			"Введите 'clear' чтобы убрать upstream прокси"), common.Reset)
+		common.T("Enter 'clear' to remove upstream gateway",
+			"Введите 'clear' чтобы убрать шлюз"), common.Reset)
 	fmt.Println()
 
 	fmt.Printf("  %s%s%s ", common.Purple7,
-		common.T("Upstream proxy: ", "Upstream прокси: "), common.Reset)
+		common.T("SOVA gateway: ", "Шлюз SOVA: "), common.Reset)
 	reader := bufio.NewReader(os.Stdin)
 	addr, _ := reader.ReadString('\n')
 	addr = strings.TrimSpace(addr)
@@ -181,7 +188,7 @@ func menuUpstreamProxy(ui *common.UI) {
 			ui.PrintError(err)
 			return
 		}
-		ui.PrintSuccess(common.T("Upstream proxy removed — direct mode", "Upstream прокси убран — прямой режим"))
+		ui.PrintSuccess(common.T("Upstream gateway removed — direct mode", "Шлюз убран — прямой режим"))
 		waitEnter()
 		return
 	}
@@ -189,7 +196,7 @@ func menuUpstreamProxy(ui *common.UI) {
 	// Validate the proxy URL
 	_, err := common.CreateUpstreamDialer(addr)
 	if err != nil {
-		ui.PrintError(fmt.Errorf(common.T("Invalid proxy: %v", "Ошибка прокси: %v"), err))
+		ui.PrintError(fmt.Errorf(common.T("Invalid gateway: %v", "Ошибка шлюза: %v"), err))
 		waitEnter()
 		return
 	}
@@ -201,8 +208,8 @@ func menuUpstreamProxy(ui *common.UI) {
 		return
 	}
 	ui.PrintSuccess(fmt.Sprintf(common.T(
-		"Upstream proxy set: %s — tunnel will route ALL traffic through it",
-		"Upstream прокси установлен: %s — туннель направит ВЕСЬ трафик через него",
+		"Upstream gateway set: %s — tunnel will route ALL traffic through it",
+		"Шлюз установлен: %s — туннель направит ВЕСЬ трафик через него",
 	), addr))
 	waitEnter()
 }
@@ -359,6 +366,25 @@ func applyConfigSetting(cfg *common.Config, key, value string) bool {
 		cfg.Stealth.JitterMs = jitter
 	case "upstream_proxy":
 		cfg.UpstreamProxy = value
+	case "tls_profile":
+		cfg.TLSProfile = value
+	case "protocol_version":
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return false
+		}
+		cfg.ProtocolVersion = v
+	case "default_outbound":
+		cfg.Routing.DefaultOutbound = value
+	case "dns_mode":
+		cfg.DNSEngine.Mode = value
+	case "dns_listen":
+		cfg.DNSEngine.ListenAddr = value
+	case "dns_leak_protect":
+		cfg.DNSEngine.LeakProtect = value == "true" || value == "1" || value == "on"
+	case "domain_front_sni":
+		cfg.DomainFronting.FrontSNI = value
+		cfg.DomainFronting.Enabled = value != ""
 	default:
 		return false
 	}
@@ -491,14 +517,19 @@ func startTunnel(ui *common.UI) {
 	listenAddr := cfg.ListenAddress()
 	ui.PrintStatus(fmt.Sprintf("Starting SOVA proxy on %s...", listenAddr), common.Green)
 
+	// Protocol v2 info
+	if cfg.ProtocolVersion == 2 {
+		ui.PrintSuccess("SOVA Protocol v2: X25519+Kyber1024 hybrid KEM, HKDF, ChaCha20-Poly1305")
+	}
+
 	proxy := common.NewSOVAProxy(listenAddr, ui)
 
-	// Upstream proxy chaining — маршрутизация трафика через внешний прокси/VPN
+	// Upstream gateway chaining — маршрутизация трафика через другой шлюз SOVA/HTTP
 	if cfg.UpstreamProxy != "" {
-		ui.PrintStatus(fmt.Sprintf("Chaining through upstream proxy %s...", cfg.UpstreamProxy), common.Cyan)
+		ui.PrintStatus(fmt.Sprintf("Chaining through upstream gateway %s...", cfg.UpstreamProxy), common.Cyan)
 		dialer, err := common.CreateUpstreamDialer(cfg.UpstreamProxy)
 		if err != nil {
-			ui.PrintError(fmt.Errorf("upstream proxy failed: %v", err))
+			ui.PrintError(fmt.Errorf("upstream gateway failed: %v", err))
 			ui.PrintWarning("Falling back to direct connections (foreign sites may not work)")
 		} else {
 			proxy.RemoteDialer = dialer
@@ -506,8 +537,8 @@ func startTunnel(ui *common.UI) {
 		}
 	} else {
 		ui.PrintWarning(common.T(
-			"No upstream proxy configured — traffic exits from YOUR IP. Set upstream_proxy for VPN-like mode.",
-			"Upstream прокси не настроен — трафик идёт с ВАШЕГО IP. Настройте upstream_proxy для VPN-режима.",
+			"No upstream gateway configured — traffic exits from YOUR IP. Set upstream_proxy for multi-hop mode.",
+			"Шлюз не настроен — трафик идёт с ВАШЕГО IP. Настройте upstream_proxy для multi-hop режима.",
 		))
 	}
 
@@ -647,7 +678,11 @@ func startRemoteTunnel(ui *common.UI, serverAddr string) {
 	ui.PrintSection("🦉 SOVA Remote Tunnel Active")
 	ui.PrintKeyValue("Server:", common.Gold+common.Bold+serverAddr+common.Reset)
 	ui.PrintKeyValue("Local proxy:", listenAddr)
-	ui.PrintKeyValue("Protocol:", "SOVA v"+common.Version+" (TLS + AES-256-GCM)")
+	protoVer := "v1 (TLS + AES-256-GCM)"
+	if cfg.ProtocolVersion == 2 {
+		protoVer = "v2 (X25519+Kyber1024 + HKDF + ChaCha20)"
+	}
+	ui.PrintKeyValue("Protocol:", "SOVA "+protoVer)
 	ui.PrintKeyValue("DPI Evasion:", "ClientHello frag + SNI spoof + jitter")
 	ui.PrintKeyValue("Transport:", "TLS 1.3 (looks like HTTPS to ISP)")
 	if autoProxy {
@@ -737,6 +772,21 @@ func handleConfig(ui *common.UI) {
 			cfg.Stealth.JitterMs = jitter
 		case "upstream_proxy":
 			cfg.UpstreamProxy = value
+		case "tls_profile":
+			cfg.TLSProfile = value
+		case "protocol_version":
+			v, err := strconv.Atoi(value)
+			if err != nil {
+				ui.ExitWithError(fmt.Errorf("invalid version: %s", value))
+			}
+			cfg.ProtocolVersion = v
+		case "default_outbound":
+			cfg.Routing.DefaultOutbound = value
+		case "dns_mode":
+			cfg.DNSEngine.Mode = value
+		case "domain_front_sni":
+			cfg.DomainFronting.FrontSNI = value
+			cfg.DomainFronting.Enabled = value != ""
 		default:
 			ui.ExitWithError(fmt.Errorf("unknown config key: %s", key))
 		}
@@ -809,9 +859,148 @@ func handleStatus(ui *common.UI) {
 
 // startClientAPI запускает REST API для управления клиентом
 func startClientAPI(cfg *common.Config, ui *common.UI) {
-	// API реализован в common пакете, используется и клиентом и сервером
-	// Здесь запускаем базовый HTTP API для управления
 	common.StartManagementAPI(cfg, ui)
+}
+
+// startCore — запуск SOVA Core engine (новый движок v2)
+func startCore(ui *common.UI) {
+	ui.PrintBanner()
+
+	cfg, err := common.LoadConfig(common.GetConfigPath())
+	if err != nil {
+		ui.PrintWarning(fmt.Sprintf("Config error: %v, using defaults", err))
+		cfg = common.DefaultConfig()
+	}
+
+	// Убеждаемся что Protocol v2
+	cfg.ProtocolVersion = 2
+	ui.PrintSuccess("SOVA Core v2 — Protocol v2 enabled")
+
+	// Инициализация криптографии
+	ui.PrintStatus("Initializing SOVA Core cryptography...", common.Cyan)
+	if err := common.InitMasterKey(); err != nil {
+		ui.ExitWithError(fmt.Errorf("master key init failed: %v", err))
+	}
+	if cfg.Encryption.PQEnabled {
+		if err := common.InitPQKeys(); err != nil {
+			ui.PrintWarning(fmt.Sprintf("PQ crypto init: %v (continuing without PQ)", err))
+		} else {
+			ui.PrintSuccess("Post-quantum crypto: Kyber1024 KEM + Dilithium5 signatures")
+		}
+	}
+	ui.PrintSuccess("Hybrid KEM: X25519 + Kyber1024 | AEAD: ChaCha20-Poly1305 | HKDF-SHA256")
+
+	// Stealth
+	if cfg.Stealth.Enabled {
+		ui.PrintStatus("Activating stealth engine...", common.Cyan)
+		ui.PrintSuccess(fmt.Sprintf("Stealth: profile=%s, jitter=%dms", cfg.Stealth.Profile, cfg.Stealth.JitterMs))
+	}
+
+	// DNS Engine
+	if cfg.DNSEngine.Enabled {
+		ui.PrintStatus(fmt.Sprintf("Starting DNS engine (%s) on %s...", cfg.DNSEngine.Mode, cfg.DNSEngine.ListenAddr), common.Cyan)
+		dnsEngine := common.NewDNSEngine2(cfg.DNSEngine)
+		if err := dnsEngine.Start(); err != nil {
+			ui.PrintWarning(fmt.Sprintf("DNS engine: %v", err))
+		} else {
+			ui.PrintSuccess(fmt.Sprintf("DNS engine: %s mode on %s (leak protect: %v)", cfg.DNSEngine.Mode, cfg.DNSEngine.ListenAddr, cfg.DNSEngine.LeakProtect))
+		}
+	}
+
+	// API
+	if cfg.API.Enabled {
+		ui.PrintStatus(fmt.Sprintf("Starting management API on %s:%d...", cfg.API.Host, cfg.API.Port), common.Cyan)
+		go startClientAPI(cfg, ui)
+		ui.PrintSuccess(fmt.Sprintf("API: http://%s:%d/api/", cfg.API.Host, cfg.API.Port))
+	}
+
+	// SOVA Core Engine
+	ui.PrintStatus("Starting SOVA Core engine...", common.Green)
+
+	core := common.NewSOVACore(cfg, ui)
+	if err := core.Start(); err != nil {
+		ui.ExitWithError(fmt.Errorf("SOVA Core failed: %v", err))
+	}
+
+	listenAddr := cfg.ListenAddress()
+
+	// TLS Profile
+	ui.PrintSuccess(fmt.Sprintf("TLS fingerprint: %s", common.GetUTLSProfileName(common.TLSProfile(cfg.TLSProfile))))
+
+	// Domain Fronting
+	if cfg.DomainFronting.Enabled {
+		ui.PrintSuccess(fmt.Sprintf("Domain fronting: SNI=%s", cfg.DomainFronting.FrontSNI))
+	}
+
+	// Auto proxy
+	autoProxy := cfg.Features.AutoProxy
+	if autoProxy {
+		ui.PrintStatus("Configuring system proxy...", common.Cyan)
+		if err := common.SetSystemProxy(listenAddr); err != nil {
+			ui.PrintWarning(fmt.Sprintf("Auto-proxy failed: %v", err))
+			autoProxy = false
+		} else {
+			ui.PrintSuccess("System proxy configured — ALL traffic routed through SOVA Core")
+		}
+	}
+
+	ui.AnimateConnection()
+
+	// Информация
+	ui.PrintSection("🦉 SOVA Core Active")
+	ui.PrintKeyValue("Core version:", "v"+common.Version)
+	ui.PrintKeyValue("Protocol:", "SOVA v2 (X25519+Kyber1024 + HKDF + ChaCha20)")
+	ui.PrintKeyValue("Local proxy:", listenAddr)
+	ui.PrintKeyValue("Routing:", cfg.Routing.DefaultOutbound)
+	ui.PrintKeyValue("TLS profile:", cfg.TLSProfile)
+	if cfg.DomainFronting.Enabled {
+		ui.PrintKeyValue("Domain fronting:", cfg.DomainFronting.FrontSNI)
+	}
+	if cfg.DNSEngine.Enabled {
+		ui.PrintKeyValue("DNS engine:", cfg.DNSEngine.Mode+" on "+cfg.DNSEngine.ListenAddr)
+	}
+	if autoProxy {
+		ui.PrintKeyValue("System proxy:", common.Gold+common.Bold+"ON — all traffic routed"+common.Reset)
+	}
+	fmt.Println()
+	fmt.Printf("%s  Press Ctrl+C to stop%s\n", common.Dim, common.Reset)
+
+	// Signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-sigChan:
+			fmt.Println()
+			ui.PrintStatus("Shutting down SOVA Core...", common.Yellow)
+			if autoProxy {
+				common.ClearSystemProxy()
+				ui.PrintSuccess("System proxy restored")
+			}
+			core.Stop()
+			stats := core.GetStats()
+			ui.PrintSection("Session Summary")
+			ui.PrintKeyValue("Total connections:", fmt.Sprintf("%d", stats["total_connections"]))
+			ui.PrintKeyValue("Traffic up:", formatBytes(stats["bytes_up"]))
+			ui.PrintKeyValue("Traffic down:", formatBytes(stats["bytes_down"]))
+			fmt.Println()
+			ui.PrintSuccess("SOVA Core stopped. Stay free!")
+			return
+		case <-ticker.C:
+			stats := core.GetStats()
+			if stats["active_connections"] > 0 || stats["total_connections"] > 0 {
+				ui.PrintStatus(fmt.Sprintf("Core: Active %d | Total %d | ↑%s ↓%s",
+					stats["active_connections"],
+					stats["total_connections"],
+					formatBytes(stats["bytes_up"]),
+					formatBytes(stats["bytes_down"])), common.Dim+common.Purple)
+			}
+		}
+	}
 }
 
 // formatBytes форматирует байты в читаемый формат

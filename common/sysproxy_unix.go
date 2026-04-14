@@ -22,12 +22,14 @@ func SetSystemProxy(proxyAddr string) error {
 	// Пробуем gsettings (GNOME/Ubuntu)
 	if path, err := exec.LookPath("gsettings"); err == nil && path != "" {
 		exec.Command("gsettings", "set", "org.gnome.system.proxy", "mode", "manual").Run()
-		exec.Command("gsettings", "set", "org.gnome.system.proxy.socks", "host", host).Run()
-		exec.Command("gsettings", "set", "org.gnome.system.proxy.socks", "port", port).Run()
+		exec.Command("gsettings", "set", "org.gnome.system.proxy.http", "host", host).Run()
+		exec.Command("gsettings", "set", "org.gnome.system.proxy.http", "port", port).Run()
+		exec.Command("gsettings", "set", "org.gnome.system.proxy.https", "host", host).Run()
+		exec.Command("gsettings", "set", "org.gnome.system.proxy.https", "port", port).Run()
 		return nil
 	}
 
-	return fmt.Errorf("auto-proxy not supported on this system; configure SOCKS5 manually: %s", proxyAddr)
+	return fmt.Errorf("auto-proxy not supported on this system; configure SOVA Proxy manually: %s", proxyAddr)
 }
 
 // ClearSystemProxy восстанавливает оригинальные настройки прокси

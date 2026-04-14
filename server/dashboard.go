@@ -107,7 +107,7 @@ const dashboardHTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SOVA Protocol Dashboard</title>
+<title>SOVA Network Dashboard</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -170,8 +170,8 @@ footer a{color:var(--purple-light);text-decoration:none}
     <span class="owl-eyes">🦉</span>
   </div>
   <div>
-    <h1>SOVA Protocol <span class="badge">v2.1</span></h1>
-    <div class="subtitle">Autonomous AI-Powered Protocol Dashboard &mdash; Mobile-Safe WebSocket Relay</div>
+    <h1>SOVA Network <span class="badge">v1.0.0</span></h1>
+    <div class="subtitle">SOVA Proxy &mdash; SOVA Protocol &mdash; SOVA VPN control surface</div>
   </div>
 </header>
 

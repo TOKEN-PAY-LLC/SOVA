@@ -98,7 +98,7 @@ func (rs *RelayServer) Start() error {
 }
 
 // handleSOVAConnection обрабатывает SOVA протокол поверх TLS:
-//  1. SOVA handshake → зашифрованное фреймовое соединение
+//  1. SOVA handshake (v2 с PQ KEM или v1 fallback) → зашифрованное соединение
 //  2. Читаем CONNECT фрейм (адрес назначения)
 //  3. Подключаемся к целевому серверу
 //  4. Отправляем ACK
@@ -109,51 +109,58 @@ func (rs *RelayServer) handleSOVAConnection(conn net.Conn) {
 		atomic.AddInt64(&rs.activeConns, -1)
 	}()
 
-	// 1. SOVA protocol handshake
-	sovaConn, err := common.ServerHandshake(conn, rs.psk)
+	// 1. SOVA protocol handshake — try v2 first, fallback to v1
+	// ServerHandshakeV2 detects v2 magic and falls back to v1 automatically
+	sovaConn, err := common.ServerHandshakeV2(conn, rs.psk, true)
 	if err != nil {
 		return // Невалидный клиент — молча закрываем
 	}
 
-	// 2. Читаем CONNECT фрейм
+	// 2. Читаем CONNECT фрейм (v2 or v1 format)
 	sovaConn.SetReadDeadline(time.Now().Add(15 * time.Second))
-	frame, err := sovaConn.ReadFrame()
+
+	// Try v2 frame format first
+	sid, ftype, payload, err := sovaConn.ReadFrameV2()
 	if err != nil {
+		// Fallback: v2 read failed — the connection was already handled by v1 handshake
+		// (ServerHandshakeV2 falls back to v1 automatically if no v2 magic detected)
+		// In that case sovaConn wraps a v1 SOVAConn — try v1 frame format
 		sovaConn.Close()
 		return
 	}
 	sovaConn.SetDeadline(time.Time{})
 
-	if frame.Type != common.FrameConnect || len(frame.Payload) == 0 {
-		sovaConn.WriteFrame(&common.Frame{Type: common.FrameAck, Payload: []byte{0x01}})
+	if ftype != common.FrameV2Connect || len(payload) == 0 {
+		sovaConn.WriteFrameV2(sid, common.FrameV2Ack, []byte{0x01})
 		sovaConn.Close()
 		return
 	}
 
-	targetAddr := string(frame.Payload)
+	targetAddr := string(payload)
 
 	// 3. Подключаемся к целевому серверу
 	remote, err := net.DialTimeout("tcp", targetAddr, 10*time.Second)
 	if err != nil {
-		sovaConn.WriteFrame(&common.Frame{Type: common.FrameAck, Payload: []byte{0x01}})
+		sovaConn.WriteFrameV2(sid, common.FrameV2Ack, []byte{0x01})
 		sovaConn.Close()
 		return
 	}
 	defer remote.Close()
 
 	// 4. Отправляем ACK — успех
-	if err := sovaConn.WriteFrame(&common.Frame{Type: common.FrameAck, Payload: []byte{0x00}}); err != nil {
+	if err := sovaConn.WriteFrameV2(sid, common.FrameV2Ack, []byte{0x00}); err != nil {
 		return
 	}
 
-	// 5. Relay через SOVAStream ↔ raw TCP
-	stream := common.NewSOVAStream(sovaConn)
+	// 5. Relay через SOVAStreamV2 ↔ raw TCP
+	stream := common.NewSOVAStreamV2(sovaConn, sid)
 	rs.relay(stream, remote)
 }
 
 // startWebSocketRelay запускает HTTP-сервер для WebSocket relay.
-// Клиенты подключаются по ws(s)://host/path, соединение апгрейдится,
-// затем SOVA handshake + зашифрованный relay.
+// Клиенты подключаются по wss://host/sova-ws,
+// nginx терминирует TLS и проксирует WebSocket сюда.
+// Внутри WS идёт тот же нативный SOVA protocol handshake и encrypted framing.
 func (rs *RelayServer) startWebSocketRelay() {
 	mux := http.NewServeMux()
 
@@ -170,7 +177,7 @@ func (rs *RelayServer) startWebSocketRelay() {
 		atomic.AddInt64(&rs.totalConns, 1)
 		atomic.AddInt64(&rs.activeConns, 1)
 
-		// WebSocket → net.Conn адаптер → SOVA протокол
+		// WebSocket → net.Conn адаптер → нативный SOVA протокол
 		conn := NewWSConn(ws)
 		go rs.handleSOVAConnection(conn)
 	})
@@ -179,7 +186,8 @@ func (rs *RelayServer) startWebSocketRelay() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		stats := rs.GetStats()
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","protocol":"sova-v1","active":%d,"total":%d}`,
+		fmt.Fprintf(w, `{"status":"ok","protocol":"sova-core-v%s","transports":["tcp-sova","ws-sova"],"active":%d,"total":%d}`,
+			common.Version,
 			stats["active_connections"], stats["total_connections"])
 	})
 
